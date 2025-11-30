@@ -1,6 +1,6 @@
 <idea-plugin url="https://go-zero.dev">
-    <id>cn.xiaoheiban.go-zero</id>
-    <name>Goctl</name>
+    <id>io.jzero.jzero</id>
+    <name>Jzero</name>
     <vendor email="anqiansong@gmail.cn" url="https://go-zero.dev">go-zero</vendor>
     <description><![CDATA[
      <a href="https://go-zero.dev/">go-zero</a> support for JetBrains products.
@@ -37,80 +37,80 @@
     <extensions defaultExtensionNs="com.intellij">
         <internalFileTemplate name="Api File"/>
         <internalFileTemplate name="Api Template"/>
-        <fileTypeFactory implementation="cn.xiaoheiban.language.ApiFileTypeFactory"/>
+        <fileTypeFactory implementation="io.jzero.language.ApiFileTypeFactory"/>
         <lang.syntaxHighlighterFactory language="api"
-                                       implementationClass="cn.xiaoheiban.highlighting.ApiSyntaxHighlighterFactory"/>
-        <lang.parserDefinition language="api" implementationClass="cn.xiaoheiban.parser.ApiParserDefinition"/>
-        <lang.ast.factory language="api" implementationClass="cn.xiaoheiban.psi.ApiASTFactory"/>
-        <annotator language="api" implementationClass="cn.xiaoheiban.language.ApiAnnotator"/>
-        <colorSettingsPage implementation="cn.xiaoheiban.highlighting.ApiColorSettingsPage"/>
-        <lang.braceMatcher language="api" implementationClass="cn.xiaoheiban.editor.ApiPairedBraceMatcher"/>
+                                       implementationClass="io.jzero.highlighting.ApiSyntaxHighlighterFactory"/>
+        <lang.parserDefinition language="api" implementationClass="io.jzero.parser.ApiParserDefinition"/>
+        <lang.ast.factory language="api" implementationClass="io.jzero.psi.ApiASTFactory"/>
+        <annotator language="api" implementationClass="io.jzero.language.ApiAnnotator"/>
+        <colorSettingsPage implementation="io.jzero.highlighting.ApiColorSettingsPage"/>
+        <lang.braceMatcher language="api" implementationClass="io.jzero.editor.ApiPairedBraceMatcher"/>
 
-        <lang.formatter language="api" implementationClass="cn.xiaoheiban.formatter.ApiFormatter"/>
-        <lang.quoteHandler language="api" implementationClass="cn.xiaoheiban.editor.QuoteHandler"/>
-        <lang.commenter language="api" implementationClass="cn.xiaoheiban.language.ApiCommenter"/>
+        <lang.formatter language="api" implementationClass="io.jzero.formatter.ApiFormatter"/>
+        <lang.quoteHandler language="api" implementationClass="io.jzero.editor.QuoteHandler"/>
+        <lang.commenter language="api" implementationClass="io.jzero.language.ApiCommenter"/>
         <completion.contributor language="api"
-                                implementationClass="cn.xiaoheiban.completion.KeywordCompletionContributor"/>
-        <completion.contributor language="api" implementationClass="cn.xiaoheiban.completion.ApiCompletionContributor"/>
-        <defaultLiveTemplatesProvider implementation="cn.xiaoheiban.template.ApiLiveTemplatesProvider"/>
-        <liveTemplateContext implementation="cn.xiaoheiban.template.ApiEverywhereContextType"/>
-        <liveTemplateContext implementation="cn.xiaoheiban.template.ApiLiveTemplateContextType$Struct"/>
-        <liveTemplateContext implementation="cn.xiaoheiban.template.ApiLiveTemplateContextType$ApiFile"/>
-        <liveTemplateContext implementation="cn.xiaoheiban.template.ApiLiveTemplateContextType$ApiService"/>
-        <liveTemplateContext implementation="cn.xiaoheiban.template.ApiLiveTemplateContextType$Tag"/>
-        <liveTemplateContext implementation="cn.xiaoheiban.template.ApiLiveTemplateContextType$TagLiteral"/>
-        <liveTemplateMacro implementation="cn.xiaoheiban.template.ApiFieldNameMacro"/>
+                                implementationClass="io.jzero.completion.KeywordCompletionContributor"/>
+        <completion.contributor language="api" implementationClass="io.jzero.completion.ApiCompletionContributor"/>
+        <defaultLiveTemplatesProvider implementation="io.jzero.template.ApiLiveTemplatesProvider"/>
+        <liveTemplateContext implementation="io.jzero.template.ApiEverywhereContextType"/>
+        <liveTemplateContext implementation="io.jzero.template.ApiLiveTemplateContextType$Struct"/>
+        <liveTemplateContext implementation="io.jzero.template.ApiLiveTemplateContextType$ApiFile"/>
+        <liveTemplateContext implementation="io.jzero.template.ApiLiveTemplateContextType$ApiService"/>
+        <liveTemplateContext implementation="io.jzero.template.ApiLiveTemplateContextType$Tag"/>
+        <liveTemplateContext implementation="io.jzero.template.ApiLiveTemplateContextType$TagLiteral"/>
+        <liveTemplateMacro implementation="io.jzero.template.ApiFieldNameMacro"/>
     </extensions>
 
     <actions>
-        <action id="Api.NewProtoFile" class="cn.xiaoheiban.action.ProtoCreateFileAction"
+        <action id="Api.NewProtoFile" class="io.jzero.action.ProtoCreateFileAction"
                 text="Proto File" description="Create new Proto file" icon="AllIcons.Actions.PrettyPrint">
             <add-to-group group-id="NewGroup" anchor="after" relative-to-action="NewFile"/>
         </action>
 
-        <action id="Api.NewApiFile" class="cn.xiaoheiban.action.ApiCreateFileAction"
+        <action id="Api.NewApiFile" class="io.jzero.action.ApiCreateFileAction"
                 text="API File" description="Create new Api file">
             <add-to-group group-id="NewGroup" anchor="after" relative-to-action="NewFile"/>
         </action>
 
         <group id="GoZeroEditorGroup" text="Go Zero" popup="true">
             <add-to-group group-id="GenerateGroup" anchor="first"/>
-            <action class="cn.xiaoheiban.action.ApiAction" id="EditorApiAction" text="API Code Generation"
+            <action class="io.jzero.action.ApiAction" id="EditorApiAction" text="API Code Generation"
                     description="Generate api"/>
-            <action class="cn.xiaoheiban.action.ApiQuickAction" id="EditorApiQuickAction"
+            <action class="io.jzero.action.ApiQuickAction" id="EditorApiQuickAction"
                     text="API Quick Code Generation"
                     description="Generate api"/>
-            <action class="cn.xiaoheiban.action.RpcAction" id="EditorRpcAction" text="ZRPC Code Generation"
+            <action class="io.jzero.action.RpcAction" id="EditorRpcAction" text="ZRPC Code Generation"
                     description="Generate rpc code"/>
-            <action class="cn.xiaoheiban.action.RpcQuickAction" id="EditorRpcQuickAction"
+            <action class="io.jzero.action.RpcQuickAction" id="EditorRpcQuickAction"
                     text="ZRPC Quick Code Generation"
                     description="Generate rpc code"/>
-            <action class="cn.xiaoheiban.action.ModelAction" id="EditorModelAction" text="Model Code Generation"
+            <action class="io.jzero.action.ModelAction" id="EditorModelAction" text="Model Code Generation"
                     description="Generate model code"/>
-            <action class="cn.xiaoheiban.action.ModelQuickAction" id="EditorModelQuickAction"
+            <action class="io.jzero.action.ModelQuickAction" id="EditorModelQuickAction"
                     text="Model Quick Code Generation"
                     description="Generate model code"/>
         </group>
 
         <group id="GoZeroProjectNewGroup" text="Go Zero" popup="true" icon="AllIcons.Actions.ProjectDirectory">
             <add-to-group group-id="NewGroup" anchor="after" relative-to-action="NewDir"/>
-            <action class="cn.xiaoheiban.action.ApiNewAction" id="ProjectApiNewAction" text="API Greet Service"
+            <action class="io.jzero.action.ApiNewAction" id="ProjectApiNewAction" text="API Greet Service"
                     description="Generate Api greet service"/>
-            <action class="cn.xiaoheiban.action.RpcNewAction" id="ProjectRpcNewAction" text="ZRPC Greet Service"
+            <action class="io.jzero.action.RpcNewAction" id="ProjectRpcNewAction" text="ZRPC Greet Service"
                     description="Generate rpc greet service"/>
-            <action class="cn.xiaoheiban.action.ApiAction" id="ProjectAPIAction" text="API Code Generation"
+            <action class="io.jzero.action.ApiAction" id="ProjectAPIAction" text="API Code Generation"
                     description="Generate api"/>
-            <action class="cn.xiaoheiban.action.ApiQuickAction" id="ProjectAPIQuickAction"
+            <action class="io.jzero.action.ApiQuickAction" id="ProjectAPIQuickAction"
                     text="API Quick Code Generation"
                     description="Generate api"/>
-            <action class="cn.xiaoheiban.action.RpcAction" id="ProjectRpcAction" text="ZRPC Code Generation"
+            <action class="io.jzero.action.RpcAction" id="ProjectRpcAction" text="ZRPC Code Generation"
                     description="Generate rpc code"/>
-            <action class="cn.xiaoheiban.action.RpcQuickAction" id="ProjectRpcQuickAction"
+            <action class="io.jzero.action.RpcQuickAction" id="ProjectRpcQuickAction"
                     text="ZRPC Quick Code Generation"
                     description="Generate rpc code"/>
-            <action class="cn.xiaoheiban.action.ModelAction" id="ProjectModelAction" text="Model Code Generation"
+            <action class="io.jzero.action.ModelAction" id="ProjectModelAction" text="Model Code Generation"
                     description="Generate model code"/>
-            <action class="cn.xiaoheiban.action.ModelQuickAction" id="ProjectQuickModelAction"
+            <action class="io.jzero.action.ModelQuickAction" id="ProjectQuickModelAction"
                     text="Model Quick Code Generation"
                     description="Generate model code"/>
         </group>
