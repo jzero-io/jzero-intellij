@@ -34,10 +34,18 @@ public class ApiAnnotator implements Annotator {
         PsiReference ref = element.getReference();
         if (ref != null) {
             PsiElement resolved = ref.resolve();
-            // If navigation works (resolved != null), no error
-            // If navigation fails, then show error
-            if (resolved == null && element.getText() != null && !element.getText().isEmpty()) {
-                holder.createErrorAnnotation(element, "can not resolve " + element.getText());
+            // If navigation works (resolved != null), apply highlighting for custom types
+            if (resolved != null) {
+                // Check if this is a custom struct type (not basic types)
+                String elementText = element.getText();
+                if (elementText != null && !isBasicType(elementText) && !elementText.contains(".")) {
+                    holder.createInfoAnnotation(element, elementText).setTextAttributes(ApiSyntaxHighlighter.IDENTIFIER);
+                }
+            } else {
+                // If navigation fails, then show error
+                if (element.getText() != null && !element.getText().isEmpty() && !isBasicType(element.getText())) {
+                    holder.createErrorAnnotation(element, "can not resolve " + element.getText());
+                }
             }
             return;
         }
@@ -125,6 +133,27 @@ public class ApiAnnotator implements Annotator {
                 }
             }
         }
+    }
+
+    /**
+     * Check if a type is a basic built-in type that shouldn't be highlighted as a custom struct
+     */
+    private boolean isBasicType(String typeName) {
+        return typeName.equals("string") ||
+               typeName.equals("int") ||
+               typeName.equals("int64") ||
+               typeName.equals("int32") ||
+               typeName.equals("bool") ||
+               typeName.equals("boolean") ||
+               typeName.equals("float") ||
+               typeName.equals("float64") ||
+               typeName.equals("double") ||
+               typeName.equals("any") ||
+               typeName.equals("interface{}") ||
+               typeName.startsWith("[]") && isBasicType(typeName.substring(2).trim()) ||
+               typeName.startsWith("map[") ||
+               typeName.equals("time.Time") ||
+               typeName.equals("[]time.Time");
     }
 
 
