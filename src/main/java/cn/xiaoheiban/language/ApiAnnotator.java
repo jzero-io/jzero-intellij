@@ -5,11 +5,13 @@ import cn.xiaoheiban.antlr4.ApiParser;
 import cn.xiaoheiban.highlighting.ApiSyntaxHighlighter;
 import cn.xiaoheiban.parser.ApiParserDefinition;
 import cn.xiaoheiban.psi.ApiFile;
+import cn.xiaoheiban.psi.IdentifierPSINode;
 import cn.xiaoheiban.psi.nodes.*;
 import com.intellij.lang.ASTNode;
 import com.intellij.lang.annotation.AnnotationHolder;
 import com.intellij.lang.annotation.Annotator;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiReference;
 import com.intellij.psi.impl.source.tree.LeafPsiElement;
 import com.intellij.psi.tree.IElementType;
 import org.antlr.jetbrains.adapter.psi.ScopeNode;
@@ -26,10 +28,23 @@ public class ApiAnnotator implements Annotator {
 
     @Override
     public void annotate(@NotNull PsiElement element, @NotNull AnnotationHolder holder) {
+        mHolder = holder;
+
+        // For all elements that could be type references, use navigation logic
+        PsiReference ref = element.getReference();
+        if (ref != null) {
+            PsiElement resolved = ref.resolve();
+            // If navigation works (resolved != null), no error
+            // If navigation fails, then show error
+            if (resolved == null && element.getText() != null && !element.getText().isEmpty()) {
+                holder.createErrorAnnotation(element, "can not resolve " + element.getText());
+            }
+            return;
+        }
+
         if (!(element instanceof IPsiNode)) {
             return;
         }
-        mHolder = holder;
         if (element instanceof ApiRootNode) {
             ApiRootNode root = (ApiRootNode) element;
             allNode = root.getAllNode();
@@ -69,43 +84,13 @@ public class ApiAnnotator implements Annotator {
                 return;
             }
 
-
-            if (allNode == null) {
-                ApiRootNode root = ApiFile.getRoot(element);
-                if (root == null) {
-                    return;
-                }
-                allNode = root.getAllNode();
-            }
-
-            String name = ((ReferenceIdNode) element).getName();
-            if (ApiRootNode.resolve(allNode, ApiParserDefinition.rule(ApiParser.RULE_structNameId), name)) {
-                holder.createInfoAnnotation(element, element.getText()).setTextAttributes(ApiSyntaxHighlighter.IDENTIFIER);
-                return;
-            }
-
-            Set<ApiRootNode> apiRootNode = ApiRootNode.getApiRootNode(element);
-            for (ApiRootNode node : apiRootNode) {
-                Map<IElementType, List<ASTNode>> allNode = node.getAllNode();
-                if (ApiRootNode.resolve(allNode, ApiParserDefinition.rule(ApiParser.RULE_structNameId), name)) {
-                    holder.createInfoAnnotation(element, element.getText()).setTextAttributes(ApiSyntaxHighlighter.IDENTIFIER);
-                    return;
-                }
-            }
-            holder.createErrorAnnotation(element, "can not resolve " + name);
+            // ReferenceIdNode should be handled by the general logic above
+            // No need for special handling here
         } else if (element instanceof BodyNode) {//RULE_body
             if (element.getText().contains(".")) {
                 return;
             }
 
-
-            if (allNode == null) {
-                ApiRootNode root = ApiFile.getRoot(element);
-                if (root == null) {
-                    return;
-                }
-                allNode = root.getAllNode();
-            }
             PsiElement lastChild = element.getLastChild();
             if (lastChild == null) {
                 return;
@@ -117,21 +102,28 @@ public class ApiAnnotator implements Annotator {
                     return;
                 }
             }
-            String name = lastChild.getText();
-            if (ApiRootNode.resolve(allNode, ApiParserDefinition.rule(ApiParser.RULE_structNameId), name)) {
-                holder.createInfoAnnotation(element, element.getText()).setTextAttributes(ApiSyntaxHighlighter.IDENTIFIER);
-                return;
-            }
 
-            Set<ApiRootNode> apiRootNode = ApiRootNode.getApiRootNode(element);
-            for (ApiRootNode node : apiRootNode) {
-                Map<IElementType, List<ASTNode>> allNode = node.getAllNode();
-                if (ApiRootNode.resolve(allNode, ApiParserDefinition.rule(ApiParser.RULE_structNameId), name)) {
-                    holder.createInfoAnnotation(element, element.getText()).setTextAttributes(ApiSyntaxHighlighter.IDENTIFIER);
-                    return;
+            // BodyNode should be handled by the general logic above
+            // No need for special handling here
+
+            // Also handle the lastChild for BodyNode specifically
+            PsiElement bodyLastChild = element.getLastChild();
+            if (bodyLastChild != null) {
+                PsiReference childRef = bodyLastChild.getReference();
+                if (childRef != null && childRef.resolve() == null && bodyLastChild.getText() != null && !bodyLastChild.getText().isEmpty()) {
+                    holder.createErrorAnnotation(element, "can not resolve " + bodyLastChild.getText());
                 }
             }
-            holder.createErrorAnnotation(element, "can not resolve " + name);
+        } else if (element instanceof AnonymousField) {
+            // AnonymousField should be handled by the general logic above
+            // But also check the nameNode specifically
+            PsiElement nameNode = ((AnonymousField) element).getNameNode();
+            if (nameNode != null) {
+                PsiReference nameRef = nameNode.getReference();
+                if (nameRef != null && nameRef.resolve() == null && nameNode.getText() != null && !nameNode.getText().isEmpty()) {
+                    holder.createErrorAnnotation(element, "can not resolve " + nameNode.getText());
+                }
+            }
         }
     }
 

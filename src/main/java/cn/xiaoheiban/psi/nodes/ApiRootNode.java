@@ -34,15 +34,50 @@ public class ApiRootNode extends IPsiNode implements ScopeNode {
         elementTypeSet.add(ApiParserDefinition.rule(ApiParser.RULE_structNameId));
         elementTypeSet.add(ApiParserDefinition.rule(ApiParser.RULE_httpRoute));
         Map<IElementType, List<ASTNode>> children = ApiFile.findChildren(this, elementTypeSet);
+
+        // For imported files, we need to also get structNameId from typeAlias and typeGroupAlias
         Set<PsiElement> importedPsiElements = getImportedPsiElements(this);
+
         for (PsiElement psi : importedPsiElements) {
             Map<IElementType, List<ASTNode>> list = ApiFile.findChildren(psi, elementTypeSet);
+
+            // Find additional structNameId nodes from typeAlias and typeGroupAlias
+            List<ASTNode> typeAliasNodes = ApiFile.findChildren(psi, ApiParserDefinition.rule(ApiParser.RULE_typeAlias));
+            List<ASTNode> typeGroupAliasNodes = ApiFile.findChildren(psi, ApiParserDefinition.rule(ApiParser.RULE_typeGroupAlias));
+
+            for (ASTNode node : typeAliasNodes) {
+                ASTNode structNameIdNode = node.findChildByType(ApiParserDefinition.rule(ApiParser.RULE_structNameId));
+                if (structNameIdNode != null) {
+                    IElementType elementType = ApiParserDefinition.rule(ApiParser.RULE_structNameId);
+                    List<ASTNode> existingList = list.get(elementType);
+                    if (existingList == null) {
+                        existingList = new ArrayList<>();
+                        list.put(elementType, existingList);
+                    }
+                    existingList.add(structNameIdNode);
+                }
+            }
+
+            for (ASTNode node : typeGroupAliasNodes) {
+                ASTNode structNameIdNode = node.findChildByType(ApiParserDefinition.rule(ApiParser.RULE_structNameId));
+                if (structNameIdNode != null) {
+                    IElementType elementType = ApiParserDefinition.rule(ApiParser.RULE_structNameId);
+                    List<ASTNode> existingList = list.get(elementType);
+                    if (existingList == null) {
+                        existingList = new ArrayList<>();
+                        list.put(elementType, existingList);
+                    }
+                    existingList.add(structNameIdNode);
+                }
+            }
+
             list.forEach((iElementType, astNodes) -> {
                 List<ASTNode> gotList = children.get(iElementType);
-                if (gotList != null) {
-                    gotList.addAll(astNodes);
-                    children.put(iElementType, gotList);
+                if (gotList == null) {
+                    gotList = new ArrayList<>();
                 }
+                gotList.addAll(astNodes);
+                children.put(iElementType, gotList);
             });
         }
         return children;
@@ -282,66 +317,33 @@ public class ApiRootNode extends IPsiNode implements ScopeNode {
     }
 
     private PsiElement resolve(PsiDirectory directory, PsiNamedElement element, Set<String> expectedPath) {
-        try {
-            if (directory == null) {
-                return null;
+        if (directory == null) {
+            return null;
+        }
+        Project project = directory.getProject();
+        VirtualFile virtualFile = directory.getVirtualFile();
+
+        for (String importPath : expectedPath) {
+            VirtualFile importedFile = virtualFile.findFileByRelativePath(importPath);
+            if (importedFile == null) {
+                continue;
             }
-            Project project = directory.getProject();
-            VirtualFile virtualFile = directory.getVirtualFile();
-            String baseDir = directory.getVirtualFile().getPath();
-            Set<VirtualFile> relativeFiles = new ArrayListSet<>();
-            Set<PsiFile> psiFiles = new ArrayListSet<>();
-            for (String importPath : expectedPath) {
-                VirtualFile fileByRelativePath = virtualFile.findFileByRelativePath(importPath);
-                if (fileByRelativePath == null) {
-                    continue;
-                }
-                relativeFiles.add(fileByRelativePath);
+
+            PsiFile psiFile = PsiManager.getInstance(project).findFile(importedFile);
+            if (psiFile == null || !(psiFile.getFileType() instanceof ApiFileType)) {
+                continue;
             }
-            for (VirtualFile file : relativeFiles) {
-                for (String path : expectedPath) {
-                    File f = new File(baseDir, path);
-                    String absolutePath = f.getCanonicalPath();
-                    if (Objects.equals(file.getCanonicalPath(), absolutePath)) {
-                        PsiFile psiFile = PsiManager.getInstance(project).findFile(file);
-                        if (psiFile == null) {
-                            continue;
-                        }
-                        psiFiles.add(psiFile);
-                    }
-                }
-            }
-            for (PsiFile file : psiFiles) {
-                if (!(file.getFileType() instanceof ApiFileType)) {
-                    continue;
-                }
-                PsiElement[] children = file.getChildren();
-                for (PsiElement psi : children) {
-                    if (!(psi instanceof ApiRootNode)) {
-                        continue;
-                    }
-                    ApiRootNode apiRootNode = (ApiRootNode) (psi);
-                    String filePath = apiRootNode.getContainingFile().getVirtualFile().getPath();
-                    boolean contains = false;
-                    for (String path : expectedPath) {
-                        File f = new File(baseDir, path);
-                        String absolutePath = f.getCanonicalPath();
-                        if (filePath.equals(absolutePath)) {
-                            contains = true;
-                            break;
-                        }
-                    }
-                    if (!contains) {
-                        continue;
-                    }
-                    PsiElement resolve = resolve(apiRootNode, element, "");
+
+            PsiElement[] children = psiFile.getChildren();
+            for (PsiElement psi : children) {
+                if (psi instanceof ApiRootNode) {
+                    ApiRootNode apiRootNode = (ApiRootNode) psi;
+                    PsiElement resolve = apiRootNode.resolve(element);
                     if (resolve != null) {
                         return resolve;
                     }
                 }
             }
-        } catch (IOException e) {
-            e.printStackTrace();
         }
         return null;
     }
