@@ -14,6 +14,7 @@ import com.intellij.icons.AllIcons;
 import io.jzero.antlr4.ApiParser;
 import io.jzero.psi.nodes.ServiceNode;
 import io.jzero.psi.nodes.ServiceRouteNode;
+import io.jzero.psi.nodes.HandlerValueNode;
 import io.jzero.parser.ApiParserDefinition;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -30,15 +31,20 @@ public class ApiNavigationLineMarkerProvider implements LineMarkerProvider {
     @Nullable
     @Override
     public LineMarkerInfo<?> getLineMarkerInfo(@NotNull PsiElement element) {
-        // Only look for http route nodes for navigation to logic files
+        // Look for handler value nodes - navigate to handler files
+        if (element instanceof HandlerValueNode) {
+            return createHandlerNavigationMarker(element, (HandlerValueNode) element);
+        }
+
+        // Look for http route nodes - navigate to logic files
         if (element instanceof ServiceRouteNode) {
-            return createNavigationMarkerForRoute(element, (ServiceRouteNode) element);
+            return createLogicNavigationMarkerForRoute(element, (ServiceRouteNode) element);
         }
 
         return null;
     }
 
-    private LineMarkerInfo<?> createNavigationMarkerForRoute(@NotNull PsiElement element, @NotNull ServiceRouteNode routeNode) {
+    private LineMarkerInfo<?> createLogicNavigationMarkerForRoute(@NotNull PsiElement element, @NotNull ServiceRouteNode routeNode) {
         // For route nodes, try to find the associated handler
         String handlerName = findHandlerForRoute(routeNode);
         if (handlerName == null) {
@@ -56,7 +62,7 @@ public class ApiNavigationLineMarkerProvider implements LineMarkerProvider {
         return new LineMarkerInfo<>(
                 element,
                 element.getTextRange(),
-                AllIcons.Actions.Find,
+                AllIcons.Actions.Forward,
                 e -> "Navigate to Logic: " + targetPath,
                 (e, elt) -> navigateToLogicFile(elt.getProject(), targetPath, handlerName),
                 GutterIconRenderer.Alignment.LEFT,
@@ -92,10 +98,11 @@ public class ApiNavigationLineMarkerProvider implements LineMarkerProvider {
     private ServiceInfo parseServerAnnotation(@NotNull String annotationText) {
         ServiceInfo info = new ServiceInfo();
 
-        // Parse group: value
+        // Parse @server configuration values
         String[] lines = annotationText.split("\n");
         for (String line : lines) {
             line = line.trim();
+
             if (line.contains("group:")) {
                 String groupValue = line.substring(line.indexOf("group:") + 6).trim();
                 // Remove quotes if present
@@ -111,9 +118,21 @@ public class ApiNavigationLineMarkerProvider implements LineMarkerProvider {
                 }
                 info.prefix = prefixValue;
             }
+            if (line.contains("compact_handler:")) {
+                String compactValue = line.substring(line.indexOf("compact_handler:") + 16).trim();
+                // Remove quotes if present
+                if (compactValue.startsWith("\"") && compactValue.endsWith("\"")) {
+                    compactValue = compactValue.substring(1, compactValue.length() - 1);
+                }
+                // Support various boolean values: true, false, yes, no
+                info.compactHandler = "true".equalsIgnoreCase(compactValue) ||
+                                   "yes".equalsIgnoreCase(compactValue) ||
+                                   "1".equals(compactValue);
+            }
         }
 
-        return info.groupName != null ? info : null;
+        // Return info if we have either group or compact_handler configuration
+        return (info.groupName != null) ? info : null;
     }
 
     private String findHandlerForRoute(@NotNull ServiceRouteNode routeNode) {
@@ -211,8 +230,109 @@ public class ApiNavigationLineMarkerProvider implements LineMarkerProvider {
         descriptor.navigate(true);
     }
 
+    private LineMarkerInfo<?> createHandlerNavigationMarker(@NotNull PsiElement element, @NotNull HandlerValueNode handlerNode) {
+        String handlerName = handlerNode.getText();
+        if (handlerName == null || handlerName.trim().isEmpty()) {
+            return null;
+        }
+
+        // Try to find the service and group information
+        ServiceInfo serviceInfo = findServiceInfo(handlerNode);
+
+        String targetPath;
+        if (serviceInfo != null && serviceInfo.groupName != null) {
+            if (serviceInfo.compactHandler) {
+                // Compact handler: internal/handler/{group}/{group_compact}.go (group without underscores)
+                String compactGroupName = serviceInfo.groupName.replace("_", "");
+                targetPath = "internal/handler/" + serviceInfo.groupName + "/" + compactGroupName + "_compact.go";
+            } else {
+                // Normal handler: internal/handler/{group}/{handler}.go
+                targetPath = "internal/handler/" + serviceInfo.groupName + "/" + handlerName.toLowerCase() + ".go";
+            }
+        } else {
+            // Fallback: try to find any handler file, prefer compact first
+            targetPath = "internal/handler/*/" + handlerName.toLowerCase() + "_compact.go";
+        }
+
+        return new LineMarkerInfo<>(
+                element,
+                element.getTextRange(),
+                AllIcons.Nodes.Function,
+                e -> "Navigate to Handler: " + targetPath,
+                (e, elt) -> navigateToHandlerFile(elt.getProject(), targetPath, handlerName, serviceInfo),
+                GutterIconRenderer.Alignment.LEFT,
+                () -> "Go to " + handlerName + " handler"
+        );
+    }
+
+    private void navigateToHandlerFile(@NotNull Project project, @NotNull String targetPath, @NotNull String handlerName, ServiceInfo serviceInfo) {
+        // Search for .go files in the project
+        Collection<VirtualFile> goFiles = FilenameIndex.getAllFilesByExt(project, "go", GlobalSearchScope.projectScope(project));
+
+        // First try exact path match
+        for (VirtualFile file : goFiles) {
+            String filePath = file.getPath();
+            if (filePath.contains(targetPath.replace("*", ""))) {
+                openFileAndNavigateToFunction(project, file, handlerName);
+                return;
+            }
+        }
+
+        // Try to find compact handler file first
+        for (VirtualFile file : goFiles) {
+            String filePath = file.getPath();
+            String handlerNameLower = handlerName.toLowerCase();
+            if (filePath.contains("handler") && filePath.contains(handlerNameLower + "_compact.go")) {
+                openFileAndNavigateToFunction(project, file, handlerName);
+                return;
+            }
+        }
+
+        // Also try to find group-based compact files (accessgrant_compact.go for access_grant group)
+        if (serviceInfo != null && serviceInfo.groupName != null && serviceInfo.compactHandler) {
+            String compactGroupName = serviceInfo.groupName.replace("_", "");
+            for (VirtualFile file : goFiles) {
+                String filePath = file.getPath();
+                if (filePath.contains("handler") && filePath.contains(compactGroupName + "_compact.go")) {
+                    openFileAndNavigateToFunction(project, file, handlerName);
+                    return;
+                }
+            }
+        }
+
+        // Try to find normal handler file
+        for (VirtualFile file : goFiles) {
+            String filePath = file.getPath();
+            String handlerNameLower = handlerName.toLowerCase();
+            if (filePath.contains("handler") &&
+                (filePath.contains("/" + handlerNameLower + ".go") ||
+                 filePath.contains("_" + handlerNameLower + ".go"))) {
+                openFileAndNavigateToFunction(project, file, handlerName);
+                return;
+            }
+        }
+
+        // If exact match fails, try broader search for handler files
+        for (VirtualFile file : goFiles) {
+            String filePath = file.getPath();
+            if (filePath.contains("handler") && filePath.contains(handlerName.toLowerCase())) {
+                openFileAndNavigateToFunction(project, file, handlerName);
+                return;
+            }
+        }
+
+        // Final fallback: just open first handler file found
+        for (VirtualFile file : goFiles) {
+            if (file.getPath().contains("handler")) {
+                openFile(project, file);
+                return;
+            }
+        }
+    }
+
     private static class ServiceInfo {
         String groupName;
         String prefix;
+        boolean compactHandler;
     }
 }
