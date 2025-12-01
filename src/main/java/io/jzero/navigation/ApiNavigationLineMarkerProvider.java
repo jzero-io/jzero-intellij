@@ -16,6 +16,7 @@ import io.jzero.psi.nodes.ServiceNode;
 import io.jzero.psi.nodes.ServiceRouteNode;
 import io.jzero.psi.nodes.HandlerValueNode;
 import io.jzero.parser.ApiParserDefinition;
+import io.jzero.util.JzeroConfigReader;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -54,7 +55,13 @@ public class ApiNavigationLineMarkerProvider implements LineMarkerProvider {
         ServiceInfo serviceInfo = findServiceInfo(routeNode);
         String targetPath;
         if (serviceInfo != null && serviceInfo.groupName != null) {
-            targetPath = "internal/logic/" + serviceInfo.groupName + "/" + handlerName.toLowerCase() + ".go";
+            // Get naming style from .jzero.yaml configuration
+            String namingFormat = JzeroConfigReader.getNamingStyle(element.getProject(), element.getContainingFile());
+
+            // Format the file name according to jzero configuration
+            String formattedHandlerName = JzeroConfigReader.formatFileName(namingFormat, handlerName);
+
+            targetPath = "internal/logic/" + serviceInfo.groupName + "/" + formattedHandlerName + ".go";
         } else {
             targetPath = "internal/logic/*/" + handlerName.toLowerCase() + ".go";
         }
@@ -241,17 +248,25 @@ public class ApiNavigationLineMarkerProvider implements LineMarkerProvider {
 
         String targetPath;
         if (serviceInfo != null && serviceInfo.groupName != null) {
+            // Get naming style from .jzero.yaml configuration
+            String namingFormat = JzeroConfigReader.getNamingStyle(element.getProject(), element.getContainingFile());
+
+            // Format the handler name according to jzero configuration
+            String formattedHandlerName = JzeroConfigReader.formatFileName(namingFormat, handlerName);
+
             if (serviceInfo.compactHandler) {
                 // Compact handler: internal/handler/{group}/{group_compact}.go (group without underscores)
                 String compactGroupName = serviceInfo.groupName.replace("_", "");
                 targetPath = "internal/handler/" + serviceInfo.groupName + "/" + compactGroupName + "_compact.go";
             } else {
                 // Normal handler: internal/handler/{group}/{handler}.go
-                targetPath = "internal/handler/" + serviceInfo.groupName + "/" + handlerName.toLowerCase() + ".go";
+                targetPath = "internal/handler/" + serviceInfo.groupName + "/" + formattedHandlerName + ".go";
             }
         } else {
             // Fallback: try to find any handler file, prefer compact first
-            targetPath = "internal/handler/*/" + handlerName.toLowerCase() + "_compact.go";
+            String namingFormat = JzeroConfigReader.getNamingStyle(element.getProject(), element.getContainingFile());
+            String formattedHandlerName = JzeroConfigReader.formatFileName(namingFormat, handlerName);
+            targetPath = "internal/handler/*/" + formattedHandlerName + "_compact.go";
         }
 
         return new LineMarkerInfo<>(

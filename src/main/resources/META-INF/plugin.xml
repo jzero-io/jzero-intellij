@@ -26,6 +26,7 @@
         <li>Support Code format</li>
         <li>Navigate to logic function from API route</li>
         <li>Navigate to handler file with compact_handler support</li>
+        <li>Support .jzero.yaml configuration for file naming format</li>
      </ul>
     ]]></description>
 

@@ -28,6 +28,7 @@ dependencies {
         exclude group: 'com.ibm.icu', module: 'icu4j'
     }
     implementation fileTree(dir:'libs',include:['*.jar'])
+    implementation 'org.yaml:snakeyaml:2.2'
     intellijPlatform {
         intellijIdeaCommunity '2024.3.5'
 
