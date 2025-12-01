@@ -1,7 +1,7 @@
 <idea-plugin url="https://go-zero.dev">
     <id>io.jzero.jzero</id>
     <name>Jzero</name>
-    <vendor email="anqiansong@gmail.cn" url="https://go-zero.dev">go-zero</vendor>
+    <vendor email="anqiansong@gmail.cn" url="https://docs.jzero.io">jzero</vendor>
     <description><![CDATA[
      <a href="https://go-zero.dev/">go-zero</a> support for JetBrains products.
      <br>
