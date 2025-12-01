@@ -24,6 +24,7 @@
         <li>Duplicate define check</li>
         <li>Keyword completion contributor</li>
         <li>Support Code format</li>
+        <li>Navigate to logic function from API route</li>
      </ul>
     ]]></description>
 
@@ -60,6 +61,7 @@
         <liveTemplateContext implementation="io.jzero.template.ApiLiveTemplateContextType$Tag"/>
         <liveTemplateContext implementation="io.jzero.template.ApiLiveTemplateContextType$TagLiteral"/>
         <liveTemplateMacro implementation="io.jzero.template.ApiFieldNameMacro"/>
+        <codeInsight.lineMarkerProvider language="api" implementationClass="io.jzero.navigation.ApiNavigationLineMarkerProvider"/>
     </extensions>
 
     <actions>
