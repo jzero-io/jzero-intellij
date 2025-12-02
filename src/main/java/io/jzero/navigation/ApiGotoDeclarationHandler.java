@@ -112,12 +112,6 @@ public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
             if (filePath.contains(targetPath)) {
                 PsiFile psiFile = PsiManager.getInstance(project).findFile(file);
                 if (psiFile != null) {
-                    // Try to find the specific function in the logic file
-                    int lineNumber = findFunctionLineNumber(psiFile, handlerName);
-                    if (lineNumber >= 0) {
-                        return createNavigationTarget(psiFile, file, lineNumber, handlerName);
-                    }
-                    // Fallback to file level navigation
                     return new PsiElement[]{psiFile};
                 }
             }
@@ -129,76 +123,12 @@ public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
             if (filePath.contains("logic") && filePath.contains(formattedHandlerName)) {
                 PsiFile psiFile = PsiManager.getInstance(project).findFile(file);
                 if (psiFile != null) {
-                    // Try to find the specific function in the logic file
-                    int lineNumber = findFunctionLineNumber(psiFile, handlerName);
-                    if (lineNumber >= 0) {
-                        return createNavigationTarget(psiFile, file, lineNumber, handlerName);
-                    }
-                    // Fallback to file level navigation
                     return new PsiElement[]{psiFile};
                 }
             }
         }
 
         return null;
-    }
-
-    private int findFunctionLineNumber(@NotNull PsiFile psiFile, @NotNull String functionName) {
-        try {
-            String content = psiFile.getText();
-            String[] lines = content.split("\\n");
-
-            for (int i = 0; i < lines.length; i++) {
-                String line = lines[i].trim();
-                // Look for "func functionName(" pattern using regex
-                if (line.startsWith("func " + functionName + "(")) {
-                    return i; // Return the line number (0-based)
-                }
-            }
-        } catch (Exception e) {
-            // If parsing fails, return -1
-        }
-
-        return -1; // Not found
-    }
-
-    private PsiElement[] createNavigationTarget(@NotNull PsiFile psiFile, @NotNull VirtualFile file, int lineNumber, @NotNull String handlerName) {
-        // Create a custom navigation target that includes position information
-        // For now, let's try using the file itself with a custom navigation approach
-        try {
-            // Use OpenFileDescriptor to navigate to the specific line
-            int offset = calculateLineOffset(psiFile, lineNumber);
-            com.intellij.openapi.fileEditor.OpenFileDescriptor descriptor =
-                new com.intellij.openapi.fileEditor.OpenFileDescriptor(
-                    psiFile.getProject(), file, offset);
-
-            // Schedule the navigation to happen after the current action
-            com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater(() -> {
-                descriptor.navigate(true);
-            });
-
-        } catch (Exception e) {
-            // If navigation fails, fall back to file level
-        }
-
-        // Return the file as the navigation target
-        return new PsiElement[]{psiFile};
-    }
-
-    private int calculateLineOffset(@NotNull PsiFile psiFile, int lineNumber) {
-        try {
-            String content = psiFile.getText();
-            String[] lines = content.split("\\n");
-
-            // Calculate the offset for the target line
-            int offset = 0;
-            for (int i = 0; i < lineNumber; i++) {
-                offset += lines[i].length() + 1; // +1 for newline
-            }
-            return offset;
-        } catch (Exception e) {
-            return 0; // Fallback to beginning of file
-        }
     }
 
     private ServiceInfo findServiceInfo(@NotNull PsiElement element) {
