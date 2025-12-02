@@ -27,6 +27,7 @@
         <li>Navigate to logic function from API route</li>
         <li>Navigate to handler file with compact_handler support</li>
         <li>Support .jzero.yaml configuration for file naming format</li>
+        <li>Execute jzero gen command from .jzero.yaml</li>
      </ul>
     ]]></description>
 
@@ -64,6 +65,7 @@
         <liveTemplateContext implementation="io.jzero.template.ApiLiveTemplateContextType$TagLiteral"/>
         <liveTemplateMacro implementation="io.jzero.template.ApiFieldNameMacro"/>
         <codeInsight.lineMarkerProvider language="api" implementationClass="io.jzero.navigation.ApiNavigationLineMarkerProvider"/>
+        <codeInsight.lineMarkerProvider implementationClass="io.jzero.navigation.JzeroYamlLineMarkerProvider"/>
         <gotoDeclarationHandler implementation="io.jzero.navigation.ApiGotoDeclarationHandler"/>
     </extensions>
 
@@ -95,6 +97,9 @@
             <action class="io.jzero.action.ModelQuickAction" id="EditorModelQuickAction"
                     text="Model Quick Code Generation"
                     description="Generate model code"/>
+            <action class="io.jzero.action.JzeroGenAction" id="EditorJzeroGenAction"
+                    text="Execute jzero gen"
+                    description="Execute jzero gen command"/>
         </group>
 
         <group id="GoZeroProjectNewGroup" text="Go Zero" popup="true" icon="AllIcons.Actions.ProjectDirectory">
@@ -118,6 +123,9 @@
             <action class="io.jzero.action.ModelQuickAction" id="ProjectQuickModelAction"
                     text="Model Quick Code Generation"
                     description="Generate model code"/>
+            <action class="io.jzero.action.JzeroGenAction" id="ProjectJzeroGenAction"
+                    text="Execute jzero gen"
+                    description="Execute jzero gen command"/>
         </group>
     </actions>
 </idea-plugin>
