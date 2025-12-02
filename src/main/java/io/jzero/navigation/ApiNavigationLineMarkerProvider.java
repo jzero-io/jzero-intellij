@@ -53,18 +53,18 @@ public class ApiNavigationLineMarkerProvider implements LineMarkerProvider {
             return null;
         }
 
+        // Get naming style from .jzero.yaml configuration
+        String namingFormat = JzeroConfigReader.getNamingStyle(element.getProject(), element.getContainingFile());
+        String formattedHandlerName = JzeroConfigReader.formatFileName(namingFormat, handlerName);
+
         ServiceInfo serviceInfo = findServiceInfo(routeNode);
         String targetPath;
         if (serviceInfo != null && serviceInfo.groupName != null) {
-            // Get naming style from .jzero.yaml configuration
-            String namingFormat = JzeroConfigReader.getNamingStyle(element.getProject(), element.getContainingFile());
-
             // Format the file name according to jzero configuration
-            String formattedHandlerName = JzeroConfigReader.formatFileName(namingFormat, handlerName);
-
             targetPath = "internal/logic/" + serviceInfo.groupName + "/" + formattedHandlerName + ".go";
         } else {
-            targetPath = "internal/logic/*/" + handlerName.toLowerCase() + ".go";
+            // Format the file name according to jzero configuration
+            targetPath = "internal/logic/" + formattedHandlerName + ".go";
         }
 
         return new LineMarkerInfo<>(
@@ -169,6 +169,10 @@ public class ApiNavigationLineMarkerProvider implements LineMarkerProvider {
         // Search for .go files in the project
         Collection<VirtualFile> goFiles = FilenameIndex.getAllFilesByExt(project, "go", GlobalSearchScope.projectScope(project));
 
+        // Get naming format for consistent file naming
+        String namingFormat = JzeroConfigReader.getNamingStyle(project, null);
+        String formattedHandlerName = JzeroConfigReader.formatFileName(namingFormat, handlerName);
+
         // First try exact path match
         for (VirtualFile file : goFiles) {
             String filePath = file.getPath();
@@ -178,10 +182,10 @@ public class ApiNavigationLineMarkerProvider implements LineMarkerProvider {
             }
         }
 
-        // If exact match fails, try broader search
+        // If exact match fails, try broader search using formatted name
         for (VirtualFile file : goFiles) {
             String filePath = file.getPath();
-            if (filePath.contains("logic") && filePath.contains(handlerName.toLowerCase())) {
+            if (filePath.contains("logic") && filePath.contains(formattedHandlerName)) {
                 openFileAndNavigateToFunction(project, file, handlerName);
                 return;
             }
@@ -218,7 +222,7 @@ public class ApiNavigationLineMarkerProvider implements LineMarkerProvider {
                             file,
                             offset
                         );
-                    descriptor.navigate(true);
+                    descriptor.navigate(false);
                     return;
                 }
             }
@@ -235,115 +239,7 @@ public class ApiNavigationLineMarkerProvider implements LineMarkerProvider {
                 file,
                 0
             );
-        descriptor.navigate(true);
-    }
-
-    private LineMarkerInfo<?> createHandlerNavigationMarker(@NotNull PsiElement element, @NotNull HandlerValueNode handlerNode) {
-        String handlerName = handlerNode.getText();
-        if (handlerName == null || handlerName.trim().isEmpty()) {
-            return null;
-        }
-
-        // Try to find the service and group information
-        ServiceInfo serviceInfo = findServiceInfo(handlerNode);
-
-        String targetPath;
-        if (serviceInfo != null && serviceInfo.groupName != null) {
-            // Get naming style from .jzero.yaml configuration
-            String namingFormat = JzeroConfigReader.getNamingStyle(element.getProject(), element.getContainingFile());
-
-            // Format the handler name according to jzero configuration
-            String formattedHandlerName = JzeroConfigReader.formatFileName(namingFormat, handlerName);
-
-            if (serviceInfo.compactHandler) {
-                // Compact handler: internal/handler/{group}/{group_compact}.go (group without underscores)
-                String compactGroupName = serviceInfo.groupName.replace("_", "");
-                targetPath = "internal/handler/" + serviceInfo.groupName + "/" + compactGroupName + "_compact.go";
-            } else {
-                // Normal handler: internal/handler/{group}/{handler}.go
-                targetPath = "internal/handler/" + serviceInfo.groupName + "/" + formattedHandlerName + ".go";
-            }
-        } else {
-            // Fallback: try to find any handler file, prefer compact first
-            String namingFormat = JzeroConfigReader.getNamingStyle(element.getProject(), element.getContainingFile());
-            String formattedHandlerName = JzeroConfigReader.formatFileName(namingFormat, handlerName);
-            targetPath = "internal/handler/*/" + formattedHandlerName + "_compact.go";
-        }
-
-        return new LineMarkerInfo<>(
-                element,
-                element.getTextRange(),
-                AllIcons.Actions.Forward,
-                e -> "Navigate to Handler: " + handlerName + " → " + targetPath,
-                (e, elt) -> navigateToHandlerFile(elt.getProject(), targetPath, handlerName, serviceInfo),
-                GutterIconRenderer.Alignment.LEFT,
-                () -> "Go to " + handlerName + " handler implementation"
-        );
-    }
-
-    private void navigateToHandlerFile(@NotNull Project project, @NotNull String targetPath, @NotNull String handlerName, ServiceInfo serviceInfo) {
-        // Search for .go files in the project
-        Collection<VirtualFile> goFiles = FilenameIndex.getAllFilesByExt(project, "go", GlobalSearchScope.projectScope(project));
-
-        // First try exact path match
-        for (VirtualFile file : goFiles) {
-            String filePath = file.getPath();
-            if (filePath.contains(targetPath.replace("*", ""))) {
-                openFileAndNavigateToFunction(project, file, handlerName);
-                return;
-            }
-        }
-
-        // Try to find compact handler file first
-        for (VirtualFile file : goFiles) {
-            String filePath = file.getPath();
-            String handlerNameLower = handlerName.toLowerCase();
-            if (filePath.contains("handler") && filePath.contains(handlerNameLower + "_compact.go")) {
-                openFileAndNavigateToFunction(project, file, handlerName);
-                return;
-            }
-        }
-
-        // Also try to find group-based compact files (accessgrant_compact.go for access_grant group)
-        if (serviceInfo != null && serviceInfo.groupName != null && serviceInfo.compactHandler) {
-            String compactGroupName = serviceInfo.groupName.replace("_", "");
-            for (VirtualFile file : goFiles) {
-                String filePath = file.getPath();
-                if (filePath.contains("handler") && filePath.contains(compactGroupName + "_compact.go")) {
-                    openFileAndNavigateToFunction(project, file, handlerName);
-                    return;
-                }
-            }
-        }
-
-        // Try to find normal handler file
-        for (VirtualFile file : goFiles) {
-            String filePath = file.getPath();
-            String handlerNameLower = handlerName.toLowerCase();
-            if (filePath.contains("handler") &&
-                (filePath.contains("/" + handlerNameLower + ".go") ||
-                 filePath.contains("_" + handlerNameLower + ".go"))) {
-                openFileAndNavigateToFunction(project, file, handlerName);
-                return;
-            }
-        }
-
-        // If exact match fails, try broader search for handler files
-        for (VirtualFile file : goFiles) {
-            String filePath = file.getPath();
-            if (filePath.contains("handler") && filePath.contains(handlerName.toLowerCase())) {
-                openFileAndNavigateToFunction(project, file, handlerName);
-                return;
-            }
-        }
-
-        // Final fallback: just open first handler file found
-        for (VirtualFile file : goFiles) {
-            if (file.getPath().contains("handler")) {
-                openFile(project, file);
-                return;
-            }
-        }
+        descriptor.navigate(false);
     }
 
     private static class ServiceInfo {

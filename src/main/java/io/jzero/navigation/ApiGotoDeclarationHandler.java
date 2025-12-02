@@ -52,21 +52,23 @@ public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
             // For nested groups like "manage/menu", we need to handle directory structure properly
             String groupPath = serviceInfo.groupName;
             String lastSegment = groupPath;
+            String[] pathSegments = new String[]{groupPath};
 
             // Extract the last segment from the group path for compact file naming
             if (groupPath.contains("/")) {
-                String[] segments = groupPath.split("/");
-                lastSegment = segments[segments.length - 1];
+                pathSegments = groupPath.split("/");
+                lastSegment = pathSegments[pathSegments.length - 1];
             }
 
-            // Format the last segment for the compact file name
             String formattedLastSegment = JzeroConfigReader.formatFileName(namingFormat, lastSegment);
 
             if (serviceInfo.compactHandler) {
-                // Compact handler: internal/handler/manage/menu/menu_compact.go
+                // Compact handler: internal/handler/access_grant/accessgrant_compact.go
+                // Directory keeps original format, file follows naming style
                 targetPath = "internal/handler/" + groupPath + "/" + formattedLastSegment + "_compact.go";
             } else {
-                // Normal handler: internal/handler/manage/menu/{handler}.go
+                // Normal handler: internal/handler/access_grant/{handler}.go
+                // Directory keeps original format, file follows naming style
                 targetPath = "internal/handler/" + groupPath + "/" + formattedHandlerName + ".go";
             }
         } else {
@@ -197,17 +199,6 @@ public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
         return new PsiElement[]{psiFile};
     }
 
-    @Nullable
-    private PsiElement findFunctionElement(@NotNull PsiFile psiFile, int lineNumber) {
-        try {
-            // For now, just return null to force file-level navigation
-            // The complex PSI element navigation seems to cause issues
-            return null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
     private int calculateLineOffset(@NotNull PsiFile psiFile, int lineNumber) {
         try {
             String content = psiFile.getText();
@@ -221,33 +212,6 @@ public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
             return offset;
         } catch (Exception e) {
             return 0; // Fallback to beginning of file
-        }
-    }
-
-    @Nullable
-    private PsiElement findElementAtLine(@NotNull PsiFile psiFile, int lineNumber) {
-        try {
-            String content = psiFile.getText();
-            String[] lines = content.split("\\n");
-
-            // Calculate the offset for the target line
-            int offset = 0;
-            for (int i = 0; i < lineNumber; i++) {
-                offset += lines[i].length() + 1; // +1 for newline
-            }
-
-            String targetLine = lines[lineNumber];
-            int funcKeywordPos = targetLine.indexOf("func ");
-            if (funcKeywordPos >= 0) {
-                // Find element at the "func" keyword position
-                return psiFile.findElementAt(offset + funcKeywordPos);
-            } else {
-                // Fallback to line start
-                return psiFile.findElementAt(offset);
-            }
-        } catch (Exception e) {
-            // If calculation fails, return null
-            return null;
         }
     }
 
