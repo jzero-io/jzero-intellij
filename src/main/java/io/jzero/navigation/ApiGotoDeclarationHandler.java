@@ -19,7 +19,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Collection;
 
 /**
- * GotoDeclarationHandler for @handler navigation
+ * GotoDeclarationHandler for @handler navigation to logic files
  */
 public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
 
@@ -40,7 +40,7 @@ public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
         // Find service information
         ServiceInfo serviceInfo = findServiceInfo(handlerNode);
 
-        // Calculate target path
+        // Calculate target path for logic files
         String targetPath;
         if (serviceInfo != null && serviceInfo.groupName != null) {
             // Get naming style from .jzero.yaml configuration
@@ -49,34 +49,17 @@ public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
             // Format the handler name according to jzero configuration
             String formattedHandlerName = JzeroConfigReader.formatFileName(namingFormat, handlerName);
 
-            // For nested groups like "manage/menu", we need to handle directory structure properly
-            String groupPath = serviceInfo.groupName;
-            String lastSegment = groupPath;
-            String[] pathSegments = new String[]{groupPath};
-
-            // Extract the last segment from the group path for compact file naming
-            if (groupPath.contains("/")) {
-                pathSegments = groupPath.split("/");
-                lastSegment = pathSegments[pathSegments.length - 1];
-            }
-
-            String formattedLastSegment = JzeroConfigReader.formatFileName(namingFormat, lastSegment);
-
-            if (serviceInfo.compactHandler) {
-                // Compact handler: internal/handler/access_grant/accessgrant_compact.go
-                // Directory keeps original format, file follows naming style
-                targetPath = "internal/handler/" + groupPath + "/" + formattedLastSegment + "_compact.go";
-            } else {
-                // Normal handler: internal/handler/access_grant/{handler}.go
-                // Directory keeps original format, file follows naming style
-                targetPath = "internal/handler/" + groupPath + "/" + formattedHandlerName + ".go";
-            }
+            // Navigate to logic files instead of handler files
+            targetPath = "internal/logic/" + serviceInfo.groupName + "/" + formattedHandlerName + ".go";
         } else {
-            return null;
+            // Fallback to logic without group
+            String namingFormat = JzeroConfigReader.getNamingStyle(sourceElement.getProject(), sourceElement.getContainingFile());
+            String formattedHandlerName = JzeroConfigReader.formatFileName(namingFormat, handlerName);
+            targetPath = "internal/logic/" + formattedHandlerName + ".go";
         }
 
         // Find and return the target PsiElement
-        return findHandlerPsiElements(sourceElement.getProject(), targetPath, handlerName, serviceInfo, sourceElement);
+        return findLogicPsiElements(sourceElement.getProject(), targetPath, handlerName, serviceInfo, sourceElement);
     }
 
     @Nullable
@@ -115,42 +98,45 @@ public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
         return null;
     }
 
-    private PsiElement[] findHandlerPsiElements(@NotNull Project project, @NotNull String targetPath, @NotNull String handlerName, @Nullable ServiceInfo serviceInfo, @NotNull PsiElement sourceElement) {
-        // Get the API file path to determine the project root
-        PsiFile apiFile = sourceElement.getContainingFile();
-        if (apiFile == null) {
-            return null;
-        }
+    private PsiElement[] findLogicPsiElements(@NotNull Project project, @NotNull String targetPath, @NotNull String handlerName, @Nullable ServiceInfo serviceInfo, @NotNull PsiElement sourceElement) {
+        // Search for .go files in the project
+        Collection<VirtualFile> goFiles = FilenameIndex.getAllFilesByExt(project, "go", GlobalSearchScope.projectScope(project));
 
-        String apiFilePath = apiFile.getVirtualFile().getPath();
-        // Extract project root path from /path/to/desc/api/manage/menu.api -> /path/to
-        int descIndex = apiFilePath.indexOf("/desc/");
-        if (descIndex == -1) {
-            return null;
-        }
-        String projectRoot = apiFilePath.substring(0, descIndex);
+        // Get naming format for consistent file naming
+        String namingFormat = JzeroConfigReader.getNamingStyle(project, sourceElement.getContainingFile());
+        String formattedHandlerName = JzeroConfigReader.formatFileName(namingFormat, handlerName);
 
-        // Construct the full target file path
-        String fullTargetPath = projectRoot + "/" + targetPath;
-
-        // Try to find the file directly using LocalFileSystem
-        com.intellij.openapi.vfs.LocalFileSystem fs = com.intellij.openapi.vfs.LocalFileSystem.getInstance();
-        VirtualFile targetFile = fs.findFileByPath(fullTargetPath);
-
-        if (targetFile != null && targetFile.exists()) {
-            PsiFile psiFile = PsiManager.getInstance(project).findFile(targetFile);
-            if (psiFile != null) {
-                // For compact handlers, try to find the specific function
-                if (serviceInfo != null && serviceInfo.compactHandler) {
+        // First try exact path match
+        for (VirtualFile file : goFiles) {
+            String filePath = file.getPath();
+            if (filePath.contains(targetPath)) {
+                PsiFile psiFile = PsiManager.getInstance(project).findFile(file);
+                if (psiFile != null) {
+                    // Try to find the specific function in the logic file
                     int lineNumber = findFunctionLineNumber(psiFile, handlerName);
                     if (lineNumber >= 0) {
-                        // For compact handlers, we need to navigate to specific functions
-                        // Create a synthetic element with position information
-                        return createNavigationTarget(psiFile, targetFile, lineNumber, handlerName);
+                        return createNavigationTarget(psiFile, file, lineNumber, handlerName);
                     }
+                    // Fallback to file level navigation
+                    return new PsiElement[]{psiFile};
                 }
-                // Fallback to file level navigation
-                return new PsiElement[]{psiFile};
+            }
+        }
+
+        // If exact match fails, try broader search using formatted name
+        for (VirtualFile file : goFiles) {
+            String filePath = file.getPath();
+            if (filePath.contains("logic") && filePath.contains(formattedHandlerName)) {
+                PsiFile psiFile = PsiManager.getInstance(project).findFile(file);
+                if (psiFile != null) {
+                    // Try to find the specific function in the logic file
+                    int lineNumber = findFunctionLineNumber(psiFile, handlerName);
+                    if (lineNumber >= 0) {
+                        return createNavigationTarget(psiFile, file, lineNumber, handlerName);
+                    }
+                    // Fallback to file level navigation
+                    return new PsiElement[]{psiFile};
+                }
             }
         }
 
@@ -259,16 +245,6 @@ public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
                 }
                 info.groupName = groupValue;
             }
-            if (line.contains("compact_handler:")) {
-                String compactValue = line.substring(line.indexOf("compact_handler:") + 16).trim();
-                // Remove quotes if present
-                if (compactValue.startsWith("\"") && compactValue.endsWith("\"")) {
-                    compactValue = compactValue.substring(1, compactValue.length() - 1);
-                }
-                info.compactHandler = "true".equalsIgnoreCase(compactValue) ||
-                                   "yes".equalsIgnoreCase(compactValue) ||
-                                   "1".equals(compactValue);
-            }
         }
 
         return info.groupName != null ? info : null;
@@ -276,6 +252,5 @@ public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
 
     private static class ServiceInfo {
         String groupName;
-        boolean compactHandler;
     }
 }
