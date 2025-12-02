@@ -32,9 +32,10 @@ public class ApiNavigationLineMarkerProvider implements LineMarkerProvider {
     @Nullable
     @Override
     public LineMarkerInfo<?> getLineMarkerInfo(@NotNull PsiElement element) {
-        // Look for handler value nodes - navigate to handler files
+        // Note: Handler navigation is now handled by ApiGotoDeclarationHandler
+        // No longer show LineMarker for HandlerValueNode
         if (element instanceof HandlerValueNode) {
-            return createHandlerNavigationMarker(element, (HandlerValueNode) element);
+            return null;
         }
 
         // Look for http route nodes - navigate to logic files
@@ -69,11 +70,11 @@ public class ApiNavigationLineMarkerProvider implements LineMarkerProvider {
         return new LineMarkerInfo<>(
                 element,
                 element.getTextRange(),
-                AllIcons.Actions.Forward,
-                e -> "Navigate to Logic: " + targetPath,
+                AllIcons.Nodes.Function,
+                e -> "Navigate to Logic: " + handlerName + " → " + targetPath,
                 (e, elt) -> navigateToLogicFile(elt.getProject(), targetPath, handlerName),
                 GutterIconRenderer.Alignment.LEFT,
-                () -> "Go to " + handlerName + " logic"
+                () -> "Go to " + handlerName + " logic implementation"
         );
     }
 
@@ -272,11 +273,11 @@ public class ApiNavigationLineMarkerProvider implements LineMarkerProvider {
         return new LineMarkerInfo<>(
                 element,
                 element.getTextRange(),
-                AllIcons.Nodes.Function,
-                e -> "Navigate to Handler: " + targetPath,
+                AllIcons.Actions.Forward,
+                e -> "Navigate to Handler: " + handlerName + " → " + targetPath,
                 (e, elt) -> navigateToHandlerFile(elt.getProject(), targetPath, handlerName, serviceInfo),
                 GutterIconRenderer.Alignment.LEFT,
-                () -> "Go to " + handlerName + " handler"
+                () -> "Go to " + handlerName + " handler implementation"
         );
     }
 

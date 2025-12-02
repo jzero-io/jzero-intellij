@@ -64,6 +64,7 @@
         <liveTemplateContext implementation="io.jzero.template.ApiLiveTemplateContextType$TagLiteral"/>
         <liveTemplateMacro implementation="io.jzero.template.ApiFieldNameMacro"/>
         <codeInsight.lineMarkerProvider language="api" implementationClass="io.jzero.navigation.ApiNavigationLineMarkerProvider"/>
+        <gotoDeclarationHandler implementation="io.jzero.navigation.ApiGotoDeclarationHandler"/>
     </extensions>
 
     <actions>
