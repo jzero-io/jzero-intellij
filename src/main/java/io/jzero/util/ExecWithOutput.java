@@ -168,20 +168,12 @@ public class ExecWithOutput {
 
     @NotNull
     private static GeneralCommandLine prepareCommandLine(@NotNull String command) {
-        String os = System.getProperty("os.name");
-        os = os.toLowerCase();
-
-        if (os.startsWith("mac") || os.startsWith("linux")) {
-            String shell = System.getenv("SHELL");
-            if (StringUtil.isEmptyOrSpaces(shell)) {
-                shell = "/bin/sh";
-            }
-            return new GeneralCommandLine(shell, "-c", command);
-        } else if (os.startsWith("windows")) {
-            return new GeneralCommandLine("cmd", "/c", command);
-        } else {
-            // Default to sh for unknown systems
-            return new GeneralCommandLine("/bin/sh", "-c", command);
+        String[] parts = command.split("\\s+");
+        GeneralCommandLine commandLine = new GeneralCommandLine();
+        commandLine.setExePath(parts[0]);
+        for (int i = 1; i < parts.length; i++) {
+            commandLine.addParameter(parts[i]);
         }
+        return commandLine;
     }
 }

@@ -106,22 +106,7 @@ public class Exec {
     }
 
     private static List<String> warpCmd(Project project, String arg) {
-        String os = System.getProperty("os.name");
-        os = os.toLowerCase();
-        if (os.startsWith("mac") || os.startsWith("linux")) {
-            String shell = System.getenv("SHELL");
-            if (StringUtil.isEmptyOrSpaces(shell)) {
-                shell = Constant.SH;
-            }
-            return Arrays.asList(shell, "-c", arg);
-        } else if (os.startsWith("windows")) {
-            return Arrays.asList(Constant.CMD, "/c", arg);
-        } else {
-            if (project != null) {
-                Notification.getInstance().error(project, "unsupport os: " + os);
-            }
-            return null;
-        }
+        return Arrays.asList(arg.split("\\s+"));
     }
 
     public static class ExecResult {

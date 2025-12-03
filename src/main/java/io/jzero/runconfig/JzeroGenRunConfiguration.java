@@ -76,25 +76,10 @@ public class JzeroGenRunConfiguration extends RunConfigurationBase<RunProfileSta
     @NotNull
     private GeneralCommandLine createCommandLine() throws ExecutionException {
         GeneralCommandLine commandLine = new GeneralCommandLine();
-
-        // Determine the shell based on OS
-        String os = System.getProperty("os.name").toLowerCase();
-        if (os.startsWith("mac") || os.startsWith("linux")) {
-            String shell = System.getenv("SHELL");
-            if (StringUtil.isEmptyOrSpaces(shell)) {
-                shell = "/bin/sh";
-            }
-            commandLine.setExePath(shell);
-            commandLine.addParameter("-c");
-            commandLine.addParameter(command);
-        } else if (os.startsWith("windows")) {
-            commandLine.setExePath("cmd");
-            commandLine.addParameter("/c");
-            commandLine.addParameter(command);
-        } else {
-            commandLine.setExePath("/bin/sh");
-            commandLine.addParameter("-c");
-            commandLine.addParameter(command);
+        commandLine.setExePath(command.split("\\s+")[0]);
+        String[] parts = command.split("\\s+");
+        for (int i = 1; i < parts.length; i++) {
+            commandLine.addParameter(parts[i]);
         }
 
         if (!StringUtil.isEmptyOrSpaces(workingDirectory)) {
