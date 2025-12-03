@@ -19,13 +19,34 @@ import java.io.File;
  */
 public class ExecWithOutput {
 
+    /**
+     * Cancellation token for stopping command execution
+     */
+    public static class CancellationToken {
+        private volatile boolean cancelled = false;
+
+        public void cancel() {
+            cancelled = true;
+        }
+
+        public boolean isCancelled() {
+            return cancelled;
+        }
+    }
+
     public static class ExecutionResult {
         private final int exitCode;
         private final boolean success;
+        private final boolean cancelled;
 
         public ExecutionResult(int exitCode, boolean success) {
+            this(exitCode, success, false);
+        }
+
+        public ExecutionResult(int exitCode, boolean success, boolean cancelled) {
             this.exitCode = exitCode;
             this.success = success;
+            this.cancelled = cancelled;
         }
 
         public int getExitCode() {
@@ -33,7 +54,11 @@ public class ExecWithOutput {
         }
 
         public boolean isSuccess() {
-            return success;
+            return success && !cancelled;
+        }
+
+        public boolean isCancelled() {
+            return cancelled;
         }
     }
 
@@ -48,6 +73,22 @@ public class ExecWithOutput {
     public static ExecutionResult executeCommand(@NotNull JzeroOutputPanel outputPanel,
                                                  @Nullable String workingDirectory,
                                                  @NotNull String command) {
+        return executeCommand(outputPanel, workingDirectory, command, null);
+    }
+
+    /**
+     * Execute a command with real-time output to the console panel
+     * @param outputPanel The output panel to display results
+     * @param workingDirectory The working directory for command execution
+     * @param command The command to execute
+     * @param cancellationToken Optional cancellation token to stop execution
+     * @return ExecutionResult containing exit code and success status
+     */
+    @NotNull
+    public static ExecutionResult executeCommand(@NotNull JzeroOutputPanel outputPanel,
+                                                 @Nullable String workingDirectory,
+                                                 @NotNull String command,
+                                                 @Nullable CancellationToken cancellationToken) {
         try {
             // Prepare command
             GeneralCommandLine commandLine = prepareCommandLine(command);
@@ -85,6 +126,15 @@ public class ExecWithOutput {
 
             // Wait for completion
             while (!processHandler.isProcessTerminated()) {
+                // Check for cancellation
+                if (cancellationToken != null && cancellationToken.isCancelled()) {
+                    processHandler.destroyProcess();
+                    ApplicationManager.getApplication().invokeLater(() -> {
+                        outputPanel.printMessage("\n⚠ Process cancelled by user\n");
+                    });
+                    return new ExecutionResult(-1, false, true);
+                }
+
                 try {
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
@@ -105,7 +155,7 @@ public class ExecWithOutput {
                 }
             });
 
-            return new ExecutionResult(exitCode, success);
+            return new ExecutionResult(exitCode, success, false);
 
         } catch (Exception e) {
             // Print error message on EDT

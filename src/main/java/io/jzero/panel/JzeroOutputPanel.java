@@ -16,6 +16,7 @@ import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
 import java.awt.*;
+import io.jzero.util.ExecWithOutput;
 
 /**
  * Output panel for displaying jzero gen command execution results
@@ -27,7 +28,10 @@ public class JzeroOutputPanel implements Disposable {
     private final Project project;
     private ConsoleView consoleView;
     private JPanel mainPanel;
+    private JPanel buttonPanel;
+    private JButton cancelButton;
     private boolean disposed = false;
+    private ExecWithOutput.CancellationToken currentToken;
 
     public JzeroOutputPanel(@NotNull Project project) {
         this.project = project;
@@ -44,8 +48,29 @@ public class JzeroOutputPanel implements Disposable {
 
         mainPanel.add(consoleView.getComponent(), BorderLayout.CENTER);
 
+        // Create button panel
+        createButtonPanel();
+
         // Add to tool window
         addToToolWindow();
+    }
+
+    private void createButtonPanel() {
+        buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        cancelButton = new JButton("Cancel");
+        cancelButton.setEnabled(false);
+        cancelButton.setToolTipText("Cancel running jzero gen command");
+
+        cancelButton.addActionListener(e -> {
+            if (currentToken != null) {
+                currentToken.cancel();
+                cancelButton.setEnabled(false);
+                printMessage("Cancelling command...\n");
+            }
+        });
+
+        buttonPanel.add(cancelButton);
+        mainPanel.add(buttonPanel, BorderLayout.NORTH);
     }
 
     private void addToToolWindow() {
@@ -98,6 +123,27 @@ public class JzeroOutputPanel implements Disposable {
         ToolWindow toolWindow = toolWindowManager.getToolWindow(TOOL_WINDOW_ID);
         if (toolWindow != null) {
             toolWindow.show(null);
+        }
+    }
+
+    /**
+     * Set up the panel for command execution
+     * @param token Cancellation token for this execution
+     */
+    public void startExecution(@NotNull ExecWithOutput.CancellationToken token) {
+        this.currentToken = token;
+        if (cancelButton != null) {
+            cancelButton.setEnabled(true);
+        }
+    }
+
+    /**
+     * Called when command execution is complete (whether successful, failed, or cancelled)
+     */
+    public void finishExecution() {
+        this.currentToken = null;
+        if (cancelButton != null) {
+            cancelButton.setEnabled(false);
         }
     }
 

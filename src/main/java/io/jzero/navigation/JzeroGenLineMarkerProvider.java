@@ -25,9 +25,10 @@ import java.util.List;
 
 /**
  * LineMarker provider for jzero gen execution buttons
- * Supports both .jzero.yaml and .api files:
+ * Supports .jzero.yaml, .api, and .proto files:
  * - For .jzero.yaml: Shows button next to "gen" keyword
  * - For .api: Shows button on first line to execute "jzero gen --desc"
+ * - For .proto: Shows button on first line to execute "jzero gen --desc"
  */
 public class JzeroGenLineMarkerProvider implements LineMarkerProvider {
 
@@ -52,8 +53,13 @@ public class JzeroGenLineMarkerProvider implements LineMarkerProvider {
             return createYamlLineMarker(element, project, virtualFile);
         }
 
-        // Handle .api files (new functionality)
+        // Handle .api files (existing functionality)
         if (fileName.endsWith(".api")) {
+            return createApiLineMarker(element, project, virtualFile);
+        }
+
+        // Handle .proto files (new functionality)
+        if (fileName.endsWith(".proto")) {
             return createApiLineMarker(element, project, virtualFile);
         }
 
@@ -154,14 +160,23 @@ public class JzeroGenLineMarkerProvider implements LineMarkerProvider {
                     indicator.setIndeterminate(true);
                     indicator.setText("Executing jzero gen command...");
 
+                    // Create cancellation token
+                    ExecWithOutput.CancellationToken cancellationToken = new ExecWithOutput.CancellationToken();
+
                     // Update UI on EDT
                     ApplicationManager.getApplication().invokeLater(() -> {
                         outputPanel.printMessage("Executing: " + command + "\n");
+                        outputPanel.startExecution(cancellationToken);
                     });
 
                     ExecWithOutput.ExecutionResult result = ExecWithOutput.executeCommand(
-                        outputPanel, finalWorkingDir, command
+                        outputPanel, finalWorkingDir, command, cancellationToken
                     );
+
+                    // Update UI on EDT when execution completes
+                    ApplicationManager.getApplication().invokeLater(() -> {
+                        outputPanel.finishExecution();
+                    });
                 }
             });
         });
