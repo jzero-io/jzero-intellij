@@ -3,19 +3,22 @@ package io.jzero.navigation;
 import com.intellij.codeInsight.daemon.LineMarkerInfo;
 import com.intellij.codeInsight.daemon.LineMarkerProvider;
 import com.intellij.codeInsight.daemon.GutterIconNavigationHandler;
+import com.intellij.execution.ExecutionException;
+import com.intellij.execution.ExecutionManager;
+import com.intellij.execution.RunManager;
+import com.intellij.execution.RunnerAndConfigurationSettings;
+import com.intellij.execution.executors.DefaultRunExecutor;
+import com.intellij.execution.runners.ExecutionEnvironmentBuilder;
 import com.intellij.icons.AllIcons;
-import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.editor.markup.GutterIconRenderer;
-import com.intellij.openapi.progress.ProgressIndicator;
-import com.intellij.openapi.progress.ProgressManager;
-import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiWhiteSpace;
-import io.jzero.panel.JzeroOutputPanel;
-import io.jzero.util.ExecWithOutput;
+import io.jzero.runconfig.JzeroGenConfigurationFactory;
+import io.jzero.runconfig.JzeroGenConfigurationType;
+import io.jzero.runconfig.JzeroGenRunConfiguration;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -144,42 +147,33 @@ public class JzeroGenLineMarkerProvider implements LineMarkerProvider {
             workingDir = triggerFile.getParent() != null ? triggerFile.getParent().getPath() : "";
         }
 
-        String finalWorkingDir = workingDir;
+        // Create a temporary run configuration
+        RunManager runManager = RunManager.getInstance(project);
+        JzeroGenConfigurationType configurationType = new JzeroGenConfigurationType();
+        JzeroGenConfigurationFactory factory =
+            (JzeroGenConfigurationFactory) configurationType.getConfigurationFactories()[0];
 
-        // Create and show output panel on EDT first
-        ApplicationManager.getApplication().invokeLater(() -> {
-            JzeroOutputPanel outputPanel = new JzeroOutputPanel(project);
-            outputPanel.clear();
-            outputPanel.printMessage("Preparing to execute jzero gen command...\n");
-            outputPanel.printMessage("Working directory: " + finalWorkingDir + "\n\n");
+        // Create run configuration
+        JzeroGenRunConfiguration runConfiguration = new JzeroGenRunConfiguration(
+            project, factory, "jzero gen"
+        );
+        runConfiguration.setCommand(command);
+        runConfiguration.setWorkingDirectory(workingDir);
 
-            // Then run the command in background
-            ProgressManager.getInstance().run(new Task.Backgroundable(project, "Running jzero gen...") {
-                @Override
-                public void run(@NotNull ProgressIndicator indicator) {
-                    indicator.setIndeterminate(true);
-                    indicator.setText("Executing jzero gen command...");
+        // Create settings for the run configuration
+        RunnerAndConfigurationSettings settings =
+            runManager.createConfiguration(runConfiguration, factory);
+        settings.setTemporary(true);
 
-                    // Create cancellation token
-                    ExecWithOutput.CancellationToken cancellationToken = new ExecWithOutput.CancellationToken();
-
-                    // Update UI on EDT
-                    ApplicationManager.getApplication().invokeLater(() -> {
-                        outputPanel.printMessage("Executing: " + command + "\n");
-                        outputPanel.startExecution(cancellationToken);
-                    });
-
-                    ExecWithOutput.ExecutionResult result = ExecWithOutput.executeCommand(
-                        outputPanel, finalWorkingDir, command, cancellationToken
-                    );
-
-                    // Update UI on EDT when execution completes
-                    ApplicationManager.getApplication().invokeLater(() -> {
-                        outputPanel.finishExecution();
-                    });
-                }
-            });
-        });
+        try {
+            // Execute the configuration using default run executor
+            ExecutionEnvironmentBuilder builder = ExecutionEnvironmentBuilder
+                .create(DefaultRunExecutor.getRunExecutorInstance(), settings);
+            ExecutionManager.getInstance(project).restartRunProfile(builder.build());
+        } catch (ExecutionException e) {
+            // Handle execution errors
+            throw new RuntimeException("Failed to execute jzero gen command", e);
+        }
     }
 
     @Nullable
