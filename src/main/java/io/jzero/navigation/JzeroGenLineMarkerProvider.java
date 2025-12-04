@@ -28,10 +28,11 @@ import java.util.List;
 
 /**
  * LineMarker provider for jzero gen execution buttons
- * Supports .jzero.yaml, .api, and .proto files:
+ * Supports .jzero.yaml, .api, .proto, and .sql files:
  * - For .jzero.yaml: Shows button next to "gen" keyword
  * - For .api: Shows button on first line to execute "jzero gen --desc"
  * - For .proto: Shows button on first line to execute "jzero gen --desc"
+ * - For .sql: Shows button on first line to execute "jzero gen --desc"
  */
 public class JzeroGenLineMarkerProvider implements LineMarkerProvider {
 
@@ -63,6 +64,11 @@ public class JzeroGenLineMarkerProvider implements LineMarkerProvider {
 
         // Handle .proto files (new functionality)
         if (fileName.endsWith(".proto")) {
+            return createApiLineMarker(element, project, virtualFile);
+        }
+
+        // Handle .sql files
+        if (fileName.endsWith(".sql")) {
             return createApiLineMarker(element, project, virtualFile);
         }
 
