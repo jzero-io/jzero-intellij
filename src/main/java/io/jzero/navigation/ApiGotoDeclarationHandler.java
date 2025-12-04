@@ -112,9 +112,7 @@ public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
             if (filePath.contains(targetPath)) {
                 PsiFile psiFile = PsiManager.getInstance(project).findFile(file);
                 if (psiFile != null) {
-                    // Return the file itself to ensure navigation to the beginning
-                    PsiElement navigationElement = getNavigationElement(psiFile);
-                    return new PsiElement[]{navigationElement};
+                    return new PsiElement[]{psiFile};
                 }
             }
         }
@@ -125,9 +123,7 @@ public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
             if (filePath.contains("logic") && filePath.contains(formattedHandlerName)) {
                 PsiFile psiFile = PsiManager.getInstance(project).findFile(file);
                 if (psiFile != null) {
-                    // Return the file itself to ensure navigation to the beginning
-                    PsiElement navigationElement = getNavigationElement(psiFile);
-                    return new PsiElement[]{navigationElement};
+                    return new PsiElement[]{psiFile};
                 }
             }
         }
@@ -186,15 +182,5 @@ public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
 
     private static class ServiceInfo {
         String groupName;
-    }
-
-    /**
-     * Get the navigation element for a PSI file
-     * Returns the first child to ensure consistent navigation to the beginning of the file
-     */
-    @NotNull
-    private PsiElement getNavigationElement(@NotNull PsiFile psiFile) {
-        PsiElement firstChild = psiFile.getFirstChild();
-        return firstChild != null ? firstChild : psiFile;
     }
 }
