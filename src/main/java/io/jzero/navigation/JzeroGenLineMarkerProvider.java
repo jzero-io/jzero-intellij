@@ -31,8 +31,8 @@ import java.util.List;
  * Supports .jzero.yaml, .api, .proto, and .sql files:
  * - For .jzero.yaml: Shows button next to "gen" keyword
  * - For .api: Shows button on first line to execute "jzero gen --desc"
- * - For .proto: Shows button on first line to execute "jzero gen --desc"
- * - For .sql: Shows button on first line to execute "jzero gen --desc"
+ * - For .proto: Shows button on first line to execute "jzero gen --desc" (only in desc/proto, excludes third_party)
+ * - For .sql: Shows button on first line to execute "jzero gen --desc" (only in desc/sql)
  */
 public class JzeroGenLineMarkerProvider implements LineMarkerProvider {
 
@@ -62,9 +62,12 @@ public class JzeroGenLineMarkerProvider implements LineMarkerProvider {
             return createApiLineMarker(element, project, virtualFile);
         }
 
-        // Handle .proto files (new functionality)
+        // Handle .proto files (only in desc/proto, exclude third_party)
         if (fileName.endsWith(".proto")) {
-            return createApiLineMarker(element, project, virtualFile);
+            String filePath = virtualFile.getPath();
+            if (filePath.contains("/desc/proto/") && !filePath.contains("/desc/proto/third_party/")) {
+                return createApiLineMarker(element, project, virtualFile);
+            }
         }
 
         // Handle .sql files (only in desc/sql directory)
