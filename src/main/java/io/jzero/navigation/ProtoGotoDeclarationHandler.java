@@ -56,29 +56,28 @@ public class ProtoGotoDeclarationHandler implements GotoDeclarationHandler {
         // Navigate through the PSI tree to find rpc method and service declarations
         // Proto files structure: service ServiceName { rpc RpcName (...) returns (...); }
 
-        PsiElement current = element;
         String rpcName = null;
         String serviceName = null;
 
-        // First, try to find the rpc name from the current element or its context
-        // Look for patterns like "rpc MethodName" in the text
-        while (current != null) {
-            String text = current.getText();
-            if (text != null) {
-                // Check if this element or its parent contains "rpc" keyword
-                if (text.trim().startsWith("rpc ") || text.contains("rpc ")) {
-                    rpcName = extractRpcName(current);
-                    if (rpcName != null) {
-                        break;
-                    }
-                }
+        // Check if current element is the rpc method name identifier
+        // The element should be an identifier that comes right after "rpc" keyword
+        String elementText = element.getText();
+        if (elementText != null && elementText.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
+            // Check if the previous sibling is "rpc" keyword
+            PsiElement prev = element.getPrevSibling();
+            while (prev != null && (prev.getText() == null || prev.getText().trim().isEmpty())) {
+                prev = prev.getPrevSibling();
             }
-            current = current.getParent();
+
+            if (prev != null && "rpc".equals(prev.getText().trim())) {
+                // This is the rpc method name
+                rpcName = elementText;
+            }
         }
 
         // If we found an rpc name, look for the service name
         if (rpcName != null) {
-            current = element;
+            PsiElement current = element;
             while (current != null) {
                 String text = current.getText();
                 if (text != null && (text.trim().startsWith("service ") || text.contains("service "))) {
