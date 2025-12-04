@@ -39,8 +39,9 @@ public class ProtoGotoDeclarationHandler implements GotoDeclarationHandler {
         // Get naming style from .jzero.yaml configuration
         String namingFormat = JzeroConfigReader.getNamingStyle(sourceElement.getProject(), containingFile);
 
-        // Format the service name and rpc name according to jzero configuration
-        String formattedServiceName = JzeroConfigReader.formatFileName(namingFormat, rpcInfo.serviceName);
+        // Service name always uses "gozero" style (lowercase without separators)
+        String formattedServiceName = JzeroConfigReader.formatFileName("gozero", rpcInfo.serviceName);
+        // Format the rpc name according to jzero configuration style
         String formattedRpcName = JzeroConfigReader.formatFileName(namingFormat, rpcInfo.rpcName);
 
         // Navigate to logic files: internal/logic/$servicename/$rpcname.go
