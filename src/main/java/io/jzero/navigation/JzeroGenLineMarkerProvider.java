@@ -67,9 +67,12 @@ public class JzeroGenLineMarkerProvider implements LineMarkerProvider {
             return createApiLineMarker(element, project, virtualFile);
         }
 
-        // Handle .sql files
+        // Handle .sql files (only in desc/sql directory)
         if (fileName.endsWith(".sql")) {
-            return createApiLineMarker(element, project, virtualFile);
+            String filePath = virtualFile.getPath();
+            if (filePath.contains("/desc/sql/")) {
+                return createApiLineMarker(element, project, virtualFile);
+            }
         }
 
         return null;
