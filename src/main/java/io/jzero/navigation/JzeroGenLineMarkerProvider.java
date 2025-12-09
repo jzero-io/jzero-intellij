@@ -49,6 +49,9 @@ public class JzeroGenLineMarkerProvider implements LineMarkerProvider {
             return null;
         }
 
+        // Ensure VirtualFile is up-to-date to handle file renames
+        virtualFile.refresh(false, false);
+
         Project project = containingFile.getProject();
         String fileName = virtualFile.getName();
 
@@ -127,12 +130,8 @@ public class JzeroGenLineMarkerProvider implements LineMarkerProvider {
             return null;
         }
 
-        String apiFilePath = virtualFile.getPath();
-
-        // Find the directory containing .jzero.yaml file
-        String jzeroConfigDir = findJzeroConfigDirectory(project, virtualFile);
-        String relativePath = calculateRelativePath(jzeroConfigDir, apiFilePath);
-        String cmd = "jzero gen --desc " + relativePath;
+        // Don't calculate the command here - do it dynamically when clicked
+        // to ensure we get the current file path after potential renames
 
         return new LineMarkerInfo<>(
                 element,
@@ -142,11 +141,35 @@ public class JzeroGenLineMarkerProvider implements LineMarkerProvider {
                 new GutterIconNavigationHandler<PsiElement>() {
                     @Override
                     public void navigate(MouseEvent e, PsiElement elt) {
-                        executeJzeroGenCommand(project, virtualFile, cmd);
+                        executeApiGenCommand(project, elt);
                     }
                 },
                 GutterIconRenderer.Alignment.LEFT
         );
+    }
+
+    private void executeApiGenCommand(@NotNull Project project, @NotNull PsiElement element) {
+        PsiFile containingFile = element.getContainingFile();
+        if (containingFile == null) {
+            return;
+        }
+
+        VirtualFile virtualFile = containingFile.getVirtualFile();
+        if (virtualFile == null) {
+            return;
+        }
+
+        // Force refresh to get the latest file information
+        virtualFile.refresh(true, false);
+
+        String apiFilePath = virtualFile.getPath();
+
+        // Find the directory containing .jzero.yaml file
+        String jzeroConfigDir = findJzeroConfigDirectory(project, virtualFile);
+        String relativePath = calculateRelativePath(jzeroConfigDir, apiFilePath);
+        String cmd = "jzero gen --desc " + relativePath;
+
+        executeJzeroGenCommand(project, virtualFile, cmd);
     }
 
     private void executeJzeroGenCommand(@NotNull Project project,
