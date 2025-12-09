@@ -37,6 +37,11 @@ public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
             return null;
         }
 
+        // Remove "Handler" suffix if present
+        if (handlerName.endsWith("Handler")) {
+            handlerName = handlerName.substring(0, handlerName.length() - "Handler".length());
+        }
+
         // Find service information
         ServiceInfo serviceInfo = findServiceInfo(handlerNode);
 
