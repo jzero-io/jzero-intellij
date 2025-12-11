@@ -1,17 +1,15 @@
-<idea-plugin url="https://go-zero.dev">
+<idea-plugin url="https://docs.jzero.io">
     <id>io.jzero.jzero</id>
     <name>Jzero</name>
-    <vendor email="anqiansong@gmail.cn" url="https://docs.jzero.io">jzero</vendor>
+    <vendor email="jaron@jaronnie.com" url="https://docs.jzero.io">jzero</vendor>
     <description><![CDATA[
-     <a href="https://go-zero.dev/">go-zero</a> support for JetBrains products.
+     <a href="https://docs.jzero.io/">jzero</a> support for JetBrains products.
      <br>
      <br>
-     Support for Api programming language of zeromicro.
+     Support for api/proto/sql programming language of zeromicro.
      <br>
      <br>
-     <a href="https://github.com/zeromicro/go-zero">go-zero</a> is a web and rpc framework for golang that with
-     lots of engineering practices builtin. It’s born to ensure the stability of the busy services with resilience design,
-      and has been serving sites with tens of millions users for years
+     <a href="https://github.com/jzero-io/jzero">jzero</a> 基于 go-zero框架 以及 go-zero/goctl工具 开发的 jzero 框架, 可一键新增 api/gateway/rpc 项目, 并基于可描述文件(api/proto/sql)自动生成服务端和客户端代码代码, 降低开发心智, 解放双手!
      <br>
      <br>
      <h1>Features</h1>
@@ -24,10 +22,9 @@
         <li>Duplicate define check</li>
         <li>Keyword completion contributor</li>
         <li>Support Code format</li>
-        <li>Navigate to logic function from API route</li>
-        <li>Navigate to handler file with compact_handler support</li>
+        <li>Navigate to logic function from api/proto</li>
         <li>Support .jzero.yaml configuration for file naming format</li>
-        <li>Execute jzero gen command from .jzero.yaml</li>
+        <li>Execute jzero gen command from .jzero.yaml/api/proto/sql</li>
      </ul>
     ]]></description>
 
@@ -81,53 +78,5 @@
                 text="API File" description="Create new Api file">
             <add-to-group group-id="NewGroup" anchor="after" relative-to-action="NewFile"/>
         </action>
-
-        <group id="GoZeroEditorGroup" text="Go Zero" popup="true">
-            <add-to-group group-id="GenerateGroup" anchor="first"/>
-            <action class="io.jzero.action.ApiAction" id="EditorApiAction" text="API Code Generation"
-                    description="Generate api"/>
-            <action class="io.jzero.action.ApiQuickAction" id="EditorApiQuickAction"
-                    text="API Quick Code Generation"
-                    description="Generate api"/>
-            <action class="io.jzero.action.RpcAction" id="EditorRpcAction" text="ZRPC Code Generation"
-                    description="Generate rpc code"/>
-            <action class="io.jzero.action.RpcQuickAction" id="EditorRpcQuickAction"
-                    text="ZRPC Quick Code Generation"
-                    description="Generate rpc code"/>
-            <action class="io.jzero.action.ModelAction" id="EditorModelAction" text="Model Code Generation"
-                    description="Generate model code"/>
-            <action class="io.jzero.action.ModelQuickAction" id="EditorModelQuickAction"
-                    text="Model Quick Code Generation"
-                    description="Generate model code"/>
-            <action class="io.jzero.action.JzeroGenAction" id="EditorJzeroGenAction"
-                    text="Execute jzero gen"
-                    description="Execute jzero gen command"/>
-        </group>
-
-        <group id="GoZeroProjectNewGroup" text="Go Zero" popup="true" icon="AllIcons.Actions.ProjectDirectory">
-            <add-to-group group-id="NewGroup" anchor="after" relative-to-action="NewDir"/>
-            <action class="io.jzero.action.ApiNewAction" id="ProjectApiNewAction" text="API Greet Service"
-                    description="Generate Api greet service"/>
-            <action class="io.jzero.action.RpcNewAction" id="ProjectRpcNewAction" text="ZRPC Greet Service"
-                    description="Generate rpc greet service"/>
-            <action class="io.jzero.action.ApiAction" id="ProjectAPIAction" text="API Code Generation"
-                    description="Generate api"/>
-            <action class="io.jzero.action.ApiQuickAction" id="ProjectAPIQuickAction"
-                    text="API Quick Code Generation"
-                    description="Generate api"/>
-            <action class="io.jzero.action.RpcAction" id="ProjectRpcAction" text="ZRPC Code Generation"
-                    description="Generate rpc code"/>
-            <action class="io.jzero.action.RpcQuickAction" id="ProjectRpcQuickAction"
-                    text="ZRPC Quick Code Generation"
-                    description="Generate rpc code"/>
-            <action class="io.jzero.action.ModelAction" id="ProjectModelAction" text="Model Code Generation"
-                    description="Generate model code"/>
-            <action class="io.jzero.action.ModelQuickAction" id="ProjectQuickModelAction"
-                    text="Model Quick Code Generation"
-                    description="Generate model code"/>
-            <action class="io.jzero.action.JzeroGenAction" id="ProjectJzeroGenAction"
-                    text="Execute jzero gen"
-                    description="Execute jzero gen command"/>
-        </group>
     </actions>
 </idea-plugin>
