@@ -69,6 +69,11 @@
     </extensions>
 
     <actions>
+        <action id="Api.NewSqlFile" class="io.jzero.action.SqlCreateFileAction"
+                text="SQL File" description="Create new SQL file" icon="AllIcons.Actions.PrettyPrint">
+            <add-to-group group-id="NewGroup" anchor="after" relative-to-action="NewFile"/>
+        </action>
+
         <action id="Api.NewProtoFile" class="io.jzero.action.ProtoCreateFileAction"
                 text="Proto File" description="Create new Proto file" icon="AllIcons.Actions.PrettyPrint">
             <add-to-group group-id="NewGroup" anchor="after" relative-to-action="NewFile"/>
