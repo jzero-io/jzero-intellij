@@ -141,6 +141,10 @@ public class Exec {
     }
 
     public static ExecResult run(Project project, String arg) {
+        return run(project, arg, null);
+    }
+
+    public static ExecResult run(Project project, String arg, String workingDir) {
         ExecResult result = new ExecResult();
         try {
             List<String> cmd = warpCmd(project, arg);
@@ -148,6 +152,9 @@ public class Exec {
                 return null;
             }
             GeneralCommandLine commandLine = new GeneralCommandLine(cmd);
+            if (workingDir != null && !workingDir.trim().isEmpty()) {
+                commandLine.setWorkDirectory(workingDir);
+            }
             ProcessOutput processOutput = ExecUtil.execAndGetOutput(commandLine);
             result.setStdout(processOutput.getStdout());
             result.setStderr(processOutput.getStderr());
