@@ -57,7 +57,7 @@ public class ApiCreateFileAction extends CreateFileFromTemplateAction implements
         // Extract relative path from working directory for the API name
         String apiName = extractRelativeApiName(directory.getVirtualFile(), workingDir, name);
 
-        String jzeroCommand = "jzero add api " + apiName + " -o std";
+        String jzeroCommand = "jzero add api " + apiName + " -o std --quiet";
 
         Exec.ExecResult result = Exec.run(project, jzeroCommand, workingDir);
 

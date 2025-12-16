@@ -56,7 +56,7 @@ public class SqlCreateFileAction extends CreateFileFromTemplateAction implements
         // Extract relative path from working directory for the sql name
         String sqlName = extractRelativeSqlName(directory.getVirtualFile(), workingDir, name);
 
-        String jzeroCommand = "jzero add sql " + sqlName + " -o std";
+        String jzeroCommand = "jzero add sql " + sqlName + " -o std --quiet";
 
         Exec.ExecResult result = Exec.run(project, jzeroCommand, workingDir);
 

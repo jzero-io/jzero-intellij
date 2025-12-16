@@ -56,7 +56,7 @@ public class ProtoCreateFileAction extends CreateFileFromTemplateAction implemen
         // Extract relative path from working directory for the proto name
         String protoName = extractRelativeProtoName(directory.getVirtualFile(), workingDir, name);
 
-        String jzeroCommand = "jzero add proto " + protoName + " -o std";
+        String jzeroCommand = "jzero add proto " + protoName + " -o std --quiet";
 
         Exec.ExecResult result = Exec.run(project, jzeroCommand, workingDir);
 
