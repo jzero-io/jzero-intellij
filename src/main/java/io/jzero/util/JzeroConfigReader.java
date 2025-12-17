@@ -32,6 +32,7 @@ public class JzeroConfigReader {
      */
     public static class JzeroConfig {
         private GenConfig gen;
+        private String style;
 
         public GenConfig getGen() {
             return gen;
@@ -39,6 +40,14 @@ public class JzeroConfigReader {
 
         public void setGen(GenConfig gen) {
             this.gen = gen;
+        }
+
+        public String getStyle() {
+            return style;
+        }
+
+        public void setStyle(String style) {
+            this.style = style;
         }
     }
 
@@ -81,10 +90,19 @@ public class JzeroConfigReader {
             cachedConfig = loadConfig(project, apiFile);
         }
 
-        if (cachedConfig != null && cachedConfig.getGen() != null) {
-            String style = cachedConfig.getGen().getStyle();
-            if (style != null && !style.trim().isEmpty()) {
-                return style.trim();
+        if (cachedConfig != null) {
+            // Priority 1: gen.style (highest priority)
+            if (cachedConfig.getGen() != null) {
+                String genStyle = cachedConfig.getGen().getStyle();
+                if (genStyle != null && !genStyle.trim().isEmpty()) {
+                    return genStyle.trim();
+                }
+            }
+
+            // Priority 2: top-level style (lower priority)
+            String topLevelStyle = cachedConfig.getStyle();
+            if (topLevelStyle != null && !topLevelStyle.trim().isEmpty()) {
+                return topLevelStyle.trim();
             }
         }
 
@@ -148,43 +166,42 @@ public class JzeroConfigReader {
                 return null;
             }
 
-            // Debug: 打印解析到的内容
-            System.out.println("DEBUG: ConfigMap keys: " + configMap.keySet());
+            // 创建配置对象
+            JzeroConfig config = new JzeroConfig();
+
+            // 获取顶级 style 配置
+            Object topLevelStyle = configMap.get("style");
+            if (topLevelStyle instanceof String) {
+                config.setStyle((String) topLevelStyle);
+                System.out.println("DEBUG: Top-level style found: " + topLevelStyle);
+            }
 
             // 获取 gen 配置
             Object genConfig = configMap.get("gen");
             System.out.println("DEBUG: genConfig type: " + (genConfig != null ? genConfig.getClass().getSimpleName() : "null"));
             System.out.println("DEBUG: genConfig value: " + genConfig);
 
-            if (!(genConfig instanceof Map)) {
-                return null;
+            if (genConfig instanceof Map) {
+                // 安全的类型转换
+                Map<String, Object> genMap;
+                try {
+                    genMap = (Map<String, Object>) genConfig;
+                } catch (ClassCastException e) {
+                    System.out.println("DEBUG: Failed to cast genConfig to Map");
+                    return config; // Return config with only top-level style if available
+                }
+
+                // 获取 gen.style 配置
+                Object genStyle = genMap.get("style");
+
+                if (genStyle instanceof String) {
+                    GenConfig genConfigObj = new GenConfig();
+                    genConfigObj.setStyle((String) genStyle);
+                    config.setGen(genConfigObj);
+                }
             }
 
-            // 安全的类型转换
-            Map<String, Object> genMap;
-            try {
-                genMap = (Map<String, Object>) genConfig;
-            } catch (ClassCastException e) {
-                System.out.println("DEBUG: Failed to cast genConfig to Map");
-                return null;
-            }
-
-            // 获取 style 配置
-            Object style = genMap.get("style");
-            System.out.println("DEBUG: genMap keys: " + genMap.keySet());
-            System.out.println("DEBUG: style type: " + (style != null ? style.getClass().getSimpleName() : "null"));
-            System.out.println("DEBUG: style value: " + style);
-
-            if (!(style instanceof String)) {
-                return null;
-            }
-
-            // 创建配置对象
-            JzeroConfig config = new JzeroConfig();
-            GenConfig genConfigObj = new GenConfig();
-            genConfigObj.setStyle((String) style);
-            config.setGen(genConfigObj);
-
+            // Return config even if no gen.style is found but top-level style exists
             return config;
 
         } catch (IOException e) {
