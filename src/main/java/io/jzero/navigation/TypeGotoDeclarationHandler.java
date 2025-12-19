@@ -3,6 +3,7 @@ package io.jzero.navigation;
 import com.intellij.codeInsight.daemon.GutterIconNavigationHandler;
 import com.intellij.codeInsight.daemon.LineMarkerInfo;
 import com.intellij.codeInsight.daemon.LineMarkerProvider;
+import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.ScrollType;
 import com.intellij.openapi.editor.markup.GutterIconRenderer;
@@ -29,9 +30,6 @@ import java.util.List;
  * Shows navigation buttons in the gutter area next to line numbers for API type definitions
  */
 public class TypeGotoDeclarationHandler implements LineMarkerProvider {
-
-    // Cache to track already processed elements and avoid duplicates
-    private final java.util.Set<Integer> processedElements = new java.util.HashSet<>();
 
     @Nullable
     @Override
@@ -63,32 +61,6 @@ public class TypeGotoDeclarationHandler implements LineMarkerProvider {
         if (!typeName.equals(elementText)) {
             return null;
         }
-
-        // Use element's text range to create a unique identifier
-        int elementHash = element.getTextRange().hashCode();
-
-        // Check if we've already processed this element
-        if (processedElements.contains(elementHash)) {
-            System.out.println("Already processed element with hash: " + elementHash);
-            return null;
-        }
-
-        // IMPORTANT: Only create marker for the FIRST occurrence in the line
-        // This prevents multiple markers for the same type name
-        if (!isFirstOccurrenceInLine(element, typeName)) {
-            System.out.println("Skipping duplicate marker for: " + typeName +
-                " element: " + element.getClass().getSimpleName() +
-                " at offset: " + element.getTextOffset());
-            return null;
-        }
-
-        // Mark this element as processed
-        processedElements.add(elementHash);
-
-        System.out.println("Creating marker for: " + typeName +
-            " element: " + element.getClass().getSimpleName() +
-            " at offset: " + element.getTextOffset() +
-            " hash: " + elementHash);
 
         final String finalTypeName = typeName;
 
