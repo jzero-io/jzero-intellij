@@ -63,8 +63,8 @@
         <liveTemplateMacro implementation="io.jzero.template.ApiFieldNameMacro"/>
         <codeInsight.lineMarkerProvider language="api" implementationClass="io.jzero.navigation.ApiNavigationLineMarkerProvider"/>
         <codeInsight.lineMarkerProvider language="api" implementationClass="io.jzero.navigation.TypeGotoDeclarationHandler"/>
+        <codeInsight.lineMarkerProvider language="api" implementationClass="io.jzero.navigation.ApiGotoDeclarationHandler"/>
         <codeInsight.lineMarkerProvider implementationClass="io.jzero.navigation.JzeroGenLineMarkerProvider"/>
-        <gotoDeclarationHandler implementation="io.jzero.navigation.ApiGotoDeclarationHandler"/>
         <gotoDeclarationHandler implementation="io.jzero.navigation.ProtoGotoDeclarationHandler"/>
         <configurationType implementation="io.jzero.runconfig.JzeroGenConfigurationType"/>
     </extensions>

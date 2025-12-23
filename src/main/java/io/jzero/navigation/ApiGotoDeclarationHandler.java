@@ -1,7 +1,8 @@
 package io.jzero.navigation;
 
-import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
-import com.intellij.openapi.editor.Editor;
+import com.intellij.codeInsight.daemon.LineMarkerInfo;
+import com.intellij.codeInsight.daemon.LineMarkerProvider;
+import com.intellij.openapi.editor.markup.GutterIconRenderer;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
@@ -9,7 +10,7 @@ import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.search.FilenameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
-import io.jzero.language.ApiFileType;
+import io.jzero.icon.ApiIcon;
 import io.jzero.psi.nodes.HandlerValueNode;
 import io.jzero.psi.nodes.ServiceNode;
 import io.jzero.util.JzeroConfigReader;
@@ -19,31 +20,54 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Collection;
 
 /**
- * GotoDeclarationHandler for @handler navigation to logic files
+ * LineMarker provider for handler navigation to logic files
+ * Based on TypeGotoDeclarationHandler pattern - shows icon in gutter for navigation
  */
-public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
+public class ApiGotoDeclarationHandler implements LineMarkerProvider {
 
+    @Nullable
     @Override
-    public PsiElement @Nullable [] getGotoDeclarationTargets(@NotNull PsiElement sourceElement, int offset, @NotNull Editor editor) {
-        // Check if this element or its parent is within a handler context
-        HandlerValueNode handlerNode = findHandlerValueNode(sourceElement);
-        if (handlerNode == null) {
-            return null;
+    public LineMarkerInfo<?> getLineMarkerInfo(@NotNull PsiElement element) {
+        // Only look for handler value nodes for navigation to logic files
+        if (element instanceof HandlerValueNode) {
+            return createNavigationMarkerForHandler(element, (HandlerValueNode) element);
         }
 
-        String handlerName = handlerNode.getText();
+        return null;
+    }
 
+    private LineMarkerInfo<?> createNavigationMarkerForHandler(@NotNull PsiElement element, @NotNull HandlerValueNode handlerNode) {
+        String handlerName = element.getText();
         if (handlerName == null || handlerName.trim().isEmpty()) {
             return null;
         }
 
+        // Remove "Handler" suffix if present for display
+        String displayName = handlerName;
+        if (handlerName.endsWith("Handler")) {
+            displayName = handlerName.substring(0, handlerName.length() - "Handler".length());
+        }
+        final String finalDisplayName = displayName;
+
+        return new LineMarkerInfo<>(
+                element,
+                element.getTextRange(),
+                ApiIcon.FILE,
+                e -> "Navigate to Logic: " + finalDisplayName,
+                (e, elt) -> navigateToLogicFile(elt, handlerName),
+                GutterIconRenderer.Alignment.LEFT,
+                () -> "Go to " + finalDisplayName + " logic"
+        );
+    }
+
+    private void navigateToLogicFile(@NotNull PsiElement sourceElement, @NotNull String handlerName) {
         // Remove "Handler" suffix if present
         if (handlerName.endsWith("Handler")) {
             handlerName = handlerName.substring(0, handlerName.length() - "Handler".length());
         }
 
         // Find service information
-        ServiceInfo serviceInfo = findServiceInfo(handlerNode);
+        ServiceInfo serviceInfo = findServiceInfo(sourceElement);
 
         // Calculate target path for logic files
         String targetPath;
@@ -54,7 +78,7 @@ public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
             // Format the handler name according to jzero configuration
             String formattedHandlerName = JzeroConfigReader.formatFileName(namingFormat, handlerName);
 
-            // Navigate to logic files instead of handler files
+            // Navigate to logic files
             targetPath = "internal/logic/" + serviceInfo.groupName + "/" + formattedHandlerName + ".go";
         } else {
             // Fallback to logic without group
@@ -63,47 +87,15 @@ public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
             targetPath = "internal/logic/" + formattedHandlerName + ".go";
         }
 
-        // Find and return the target PsiElement
-        return findLogicPsiElements(sourceElement.getProject(), targetPath, handlerName, serviceInfo, sourceElement);
+        // Find and navigate to the target logic file
+        PsiFile targetFile = findLogicFile(sourceElement.getProject(), targetPath, handlerName, sourceElement);
+        if (targetFile != null) {
+            navigateToFile(sourceElement.getProject(), targetFile.getVirtualFile());
+        }
     }
 
     @Nullable
-    private HandlerValueNode findHandlerValueNode(@NotNull PsiElement element) {
-        // First check if the element itself is a HandlerValueNode
-        if (element instanceof HandlerValueNode) {
-            return (HandlerValueNode) element;
-        }
-
-        // Then check its parent and ancestors
-        PsiElement current = element.getParent();
-        while (current != null) {
-            if (current instanceof HandlerValueNode) {
-                return (HandlerValueNode) current;
-            }
-            current = current.getParent();
-        }
-
-        // Also check children in case we're on a parent element
-        return findChildHandlerValueNode(element);
-    }
-
-    @Nullable
-    private HandlerValueNode findChildHandlerValueNode(@NotNull PsiElement element) {
-        // Search in the element's children for HandlerValueNode
-        for (PsiElement child : element.getChildren()) {
-            if (child instanceof HandlerValueNode) {
-                return (HandlerValueNode) child;
-            }
-            // Recursively search
-            HandlerValueNode found = findChildHandlerValueNode(child);
-            if (found != null) {
-                return found;
-            }
-        }
-        return null;
-    }
-
-    private PsiElement[] findLogicPsiElements(@NotNull Project project, @NotNull String targetPath, @NotNull String handlerName, @Nullable ServiceInfo serviceInfo, @NotNull PsiElement sourceElement) {
+    private PsiFile findLogicFile(@NotNull Project project, @NotNull String targetPath, @NotNull String handlerName, @NotNull PsiElement sourceElement) {
         // Search for .go files in the project
         Collection<VirtualFile> goFiles = FilenameIndex.getAllFilesByExt(project, "go", GlobalSearchScope.projectScope(project));
 
@@ -115,10 +107,7 @@ public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
         for (VirtualFile file : goFiles) {
             String filePath = file.getPath();
             if (filePath.contains(targetPath)) {
-                PsiFile psiFile = PsiManager.getInstance(project).findFile(file);
-                if (psiFile != null) {
-                    return new PsiElement[]{psiFile};
-                }
+                return PsiManager.getInstance(project).findFile(file);
             }
         }
 
@@ -126,14 +115,21 @@ public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
         for (VirtualFile file : goFiles) {
             String filePath = file.getPath();
             if (filePath.contains("logic") && filePath.contains(formattedHandlerName)) {
-                PsiFile psiFile = PsiManager.getInstance(project).findFile(file);
-                if (psiFile != null) {
-                    return new PsiElement[]{psiFile};
-                }
+                return PsiManager.getInstance(project).findFile(file);
             }
         }
 
         return null;
+    }
+
+    private void navigateToFile(@NotNull Project project, @NotNull VirtualFile file) {
+        com.intellij.openapi.fileEditor.OpenFileDescriptor descriptor =
+            new com.intellij.openapi.fileEditor.OpenFileDescriptor(
+                project,
+                file,
+                0
+            );
+        descriptor.navigate(true);
     }
 
     private ServiceInfo findServiceInfo(@NotNull PsiElement element) {
@@ -183,6 +179,11 @@ public class ApiGotoDeclarationHandler implements GotoDeclarationHandler {
         }
 
         return info.groupName != null ? info : null;
+    }
+
+    @Override
+    public void collectSlowLineMarkers(@NotNull java.util.List<? extends PsiElement> elements, @NotNull java.util.Collection<? super LineMarkerInfo<?>> result) {
+        // Not needed for this implementation
     }
 
     private static class ServiceInfo {

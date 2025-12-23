@@ -2,7 +2,6 @@ package io.jzero.navigation;
 
 import com.intellij.codeInsight.daemon.LineMarkerInfo;
 import com.intellij.codeInsight.daemon.LineMarkerProvider;
-import com.intellij.icons.AllIcons;
 import com.intellij.openapi.editor.markup.GutterIconRenderer;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -11,6 +10,7 @@ import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.search.FilenameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
+import io.jzero.icon.ApiIcon;
 import io.jzero.psi.nodes.StructNameNode;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -43,8 +43,8 @@ public class TypeGotoDeclarationHandler implements LineMarkerProvider {
         return new LineMarkerInfo<>(
                 element,
                 element.getTextRange(),
-                AllIcons.Actions.Find,
-                e -> "Navigate to Types: " + structName,
+                ApiIcon.FILE,
+                e -> "Navigate to Go Types: " + structName,
                 (e, elt) -> navigateToTypesFile(elt, structName),
                 GutterIconRenderer.Alignment.LEFT,
                 () -> "Go to " + structName + " struct"
