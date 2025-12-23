@@ -90,7 +90,8 @@ public class ApiGotoDeclarationHandler implements LineMarkerProvider {
         // Find and navigate to the target logic file
         PsiFile targetFile = findLogicFile(sourceElement.getProject(), targetPath, handlerName, sourceElement);
         if (targetFile != null) {
-            navigateToFile(sourceElement.getProject(), targetFile.getVirtualFile());
+            // Navigate to NewHandler function
+            navigateToNewHandlerFunction(sourceElement.getProject(), targetFile, handlerName);
         }
     }
 
@@ -122,12 +123,27 @@ public class ApiGotoDeclarationHandler implements LineMarkerProvider {
         return null;
     }
 
-    private void navigateToFile(@NotNull Project project, @NotNull VirtualFile file) {
+    private void navigateToNewHandlerFunction(@NotNull Project project, @NotNull PsiFile goFile, @NotNull String handlerName) {
+        String content = goFile.getText();
+        // Capitalize first letter for function name (e.g., "test" -> "Test")
+        String functionName = "New" + handlerName.substring(0, 1).toUpperCase() + handlerName.substring(1);
+        String functionSearch = "func " + functionName + "(";
+
+        int functionIndex = content.indexOf(functionSearch);
+        if (functionIndex != -1) {
+            openFileAndNavigate(project, goFile.getVirtualFile(), functionIndex);
+        } else {
+            // Fallback to file beginning if function not found
+            openFileAndNavigate(project, goFile.getVirtualFile(), 0);
+        }
+    }
+
+    private void openFileAndNavigate(@NotNull Project project, @NotNull VirtualFile file, int targetOffset) {
         com.intellij.openapi.fileEditor.OpenFileDescriptor descriptor =
             new com.intellij.openapi.fileEditor.OpenFileDescriptor(
                 project,
                 file,
-                0
+                targetOffset
             );
         descriptor.navigate(true);
     }
