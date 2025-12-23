@@ -1,7 +1,8 @@
 package io.jzero.navigation;
 
-import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
-import com.intellij.openapi.editor.Editor;
+import com.intellij.codeInsight.daemon.LineMarkerInfo;
+import com.intellij.codeInsight.daemon.LineMarkerProvider;
+import com.intellij.openapi.editor.markup.GutterIconRenderer;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
@@ -9,7 +10,7 @@ import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.search.FilenameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.util.PsiTreeUtil;
+import io.jzero.icon.ApiIcon;
 import io.jzero.util.JzeroConfigReader;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -17,26 +18,45 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Collection;
 
 /**
- * GotoDeclarationHandler for proto rpc method navigation to logic files
+ * LineMarker provider for proto rpc method navigation to logic files
  * Navigates from proto service rpc methods to internal/logic/$servicename/$rpcname.go
+ * Based on ApiGotoDeclarationHandler pattern - shows icon in gutter for navigation
  */
-public class ProtoGotoDeclarationHandler implements GotoDeclarationHandler {
+public class ProtoGotoDeclarationHandler implements LineMarkerProvider {
 
+    @Nullable
     @Override
-    public PsiElement @Nullable [] getGotoDeclarationTargets(@NotNull PsiElement sourceElement, int offset, @NotNull Editor editor) {
+    public LineMarkerInfo<?> getLineMarkerInfo(@NotNull PsiElement element) {
         // Check if this is a proto file
-        PsiFile containingFile = sourceElement.getContainingFile();
+        PsiFile containingFile = element.getContainingFile();
         if (containingFile == null || !containingFile.getName().endsWith(".proto")) {
             return null;
         }
 
         // Try to find rpc method information
-        RpcMethodInfo rpcInfo = findRpcMethodInfo(sourceElement);
+        RpcMethodInfo rpcInfo = findRpcMethodInfo(element);
         if (rpcInfo == null || rpcInfo.rpcName == null || rpcInfo.serviceName == null) {
             return null;
         }
 
+        return createNavigationMarkerForRpc(element, rpcInfo);
+    }
+
+    private LineMarkerInfo<?> createNavigationMarkerForRpc(@NotNull PsiElement element, @NotNull RpcMethodInfo rpcInfo) {
+        return new LineMarkerInfo<>(
+                element,
+                element.getTextRange(),
+                ApiIcon.FILE,
+                e -> "Navigate to Logic: " + rpcInfo.rpcName,
+                (e, elt) -> navigateToLogicFile(elt, rpcInfo),
+                GutterIconRenderer.Alignment.LEFT,
+                () -> "Go to " + rpcInfo.rpcName + " logic"
+        );
+    }
+
+    private void navigateToLogicFile(@NotNull PsiElement sourceElement, @NotNull RpcMethodInfo rpcInfo) {
         // Get naming style from .jzero.yaml configuration
+        PsiFile containingFile = sourceElement.getContainingFile();
         String namingFormat = JzeroConfigReader.getNamingStyle(sourceElement.getProject(), containingFile);
 
         // Service name always uses "gozero" style (lowercase without separators)
@@ -47,8 +67,75 @@ public class ProtoGotoDeclarationHandler implements GotoDeclarationHandler {
         // Navigate to logic files: internal/logic/$servicename/$rpcname.go
         String targetPath = "internal/logic/" + formattedServiceName + "/" + formattedRpcName + ".go";
 
-        // Find and return the target PsiElement
-        return findLogicPsiElements(sourceElement.getProject(), targetPath, formattedServiceName, formattedRpcName);
+        // Find and navigate to the target logic file
+        PsiFile targetFile = findLogicFile(sourceElement.getProject(), targetPath, formattedServiceName, formattedRpcName);
+        if (targetFile != null) {
+            // Navigate to NewRpc function
+            navigateToNewRpcFunction(sourceElement.getProject(), targetFile, rpcInfo.rpcName);
+        }
+    }
+
+    @Nullable
+    private PsiFile findLogicFile(@NotNull Project project,
+                                  @NotNull String targetPath,
+                                  @NotNull String serviceName,
+                                  @NotNull String rpcName) {
+        // Search for .go files in the project
+        Collection<VirtualFile> goFiles = FilenameIndex.getAllFilesByExt(project, "go", GlobalSearchScope.projectScope(project));
+
+        // First try exact path match
+        for (VirtualFile file : goFiles) {
+            String filePath = file.getPath();
+            if (filePath.contains(targetPath)) {
+                return PsiManager.getInstance(project).findFile(file);
+            }
+        }
+
+        // If exact match fails, try broader search using formatted names
+        for (VirtualFile file : goFiles) {
+            String filePath = file.getPath();
+            // Check if path contains both logic directory and the rpc name
+            if (filePath.contains("logic") &&
+                filePath.contains("/" + serviceName + "/") &&
+                filePath.contains(rpcName)) {
+                return PsiManager.getInstance(project).findFile(file);
+            }
+        }
+
+        // Final fallback: just look for the rpc name in logic directories
+        for (VirtualFile file : goFiles) {
+            String filePath = file.getPath();
+            if (filePath.contains("logic") && filePath.contains(rpcName)) {
+                return PsiManager.getInstance(project).findFile(file);
+            }
+        }
+
+        return null;
+    }
+
+    private void navigateToNewRpcFunction(@NotNull Project project, @NotNull PsiFile goFile, @NotNull String rpcName) {
+        String content = goFile.getText();
+        // Capitalize first letter for function name (e.g., "getuser" -> "Getuser")
+        String functionName = "New" + rpcName.substring(0, 1).toUpperCase() + rpcName.substring(1);
+        String functionSearch = "func " + functionName + "(";
+
+        int functionIndex = content.indexOf(functionSearch);
+        if (functionIndex != -1) {
+            openFileAndNavigate(project, goFile.getVirtualFile(), functionIndex);
+        } else {
+            // Fallback to file beginning if function not found
+            openFileAndNavigate(project, goFile.getVirtualFile(), 0);
+        }
+    }
+
+    private void openFileAndNavigate(@NotNull Project project, @NotNull VirtualFile file, int targetOffset) {
+        com.intellij.openapi.fileEditor.OpenFileDescriptor descriptor =
+            new com.intellij.openapi.fileEditor.OpenFileDescriptor(
+                project,
+                file,
+                targetOffset
+            );
+        descriptor.navigate(true);
     }
 
     @Nullable
@@ -101,43 +188,6 @@ public class ProtoGotoDeclarationHandler implements GotoDeclarationHandler {
     }
 
     @Nullable
-    private String extractRpcName(@NotNull PsiElement element) {
-        // Extract rpc method name from element text
-        // Expected format: "rpc MethodName (RequestType) returns (ResponseType);"
-        String text = element.getText();
-        if (text == null) {
-            return null;
-        }
-
-        // Simple extraction: look for "rpc " followed by identifier
-        String[] parts = text.trim().split("\\s+");
-        for (int i = 0; i < parts.length - 1; i++) {
-            if ("rpc".equals(parts[i])) {
-                String name = parts[i + 1];
-                // Remove any trailing characters like '(' or '{'
-                name = name.replaceAll("[^a-zA-Z0-9_].*", "");
-                if (!name.isEmpty()) {
-                    return name;
-                }
-            }
-        }
-
-        // Alternative: check if element itself is the identifier after "rpc"
-        PsiElement prev = element.getPrevSibling();
-        while (prev != null) {
-            if (prev.getText() != null && prev.getText().trim().equals("rpc")) {
-                String name = element.getText();
-                if (name != null && name.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
-                    return name;
-                }
-            }
-            prev = prev.getPrevSibling();
-        }
-
-        return null;
-    }
-
-    @Nullable
     private String extractServiceName(@NotNull PsiElement element) {
         // Extract service name from element text
         // Expected format: "service ServiceName {"
@@ -174,50 +224,9 @@ public class ProtoGotoDeclarationHandler implements GotoDeclarationHandler {
         return null;
     }
 
-    private PsiElement[] findLogicPsiElements(@NotNull Project project,
-                                              @NotNull String targetPath,
-                                              @NotNull String serviceName,
-                                              @NotNull String rpcName) {
-        // Search for .go files in the project
-        Collection<VirtualFile> goFiles = FilenameIndex.getAllFilesByExt(project, "go", GlobalSearchScope.projectScope(project));
-
-        // First try exact path match
-        for (VirtualFile file : goFiles) {
-            String filePath = file.getPath();
-            if (filePath.contains(targetPath)) {
-                PsiFile psiFile = PsiManager.getInstance(project).findFile(file);
-                if (psiFile != null) {
-                    return new PsiElement[]{psiFile};
-                }
-            }
-        }
-
-        // If exact match fails, try broader search using formatted names
-        for (VirtualFile file : goFiles) {
-            String filePath = file.getPath();
-            // Check if path contains both logic directory and the rpc name
-            if (filePath.contains("logic") &&
-                filePath.contains("/" + serviceName + "/") &&
-                filePath.contains(rpcName)) {
-                PsiFile psiFile = PsiManager.getInstance(project).findFile(file);
-                if (psiFile != null) {
-                    return new PsiElement[]{psiFile};
-                }
-            }
-        }
-
-        // Final fallback: just look for the rpc name in logic directories
-        for (VirtualFile file : goFiles) {
-            String filePath = file.getPath();
-            if (filePath.contains("logic") && filePath.contains(rpcName)) {
-                PsiFile psiFile = PsiManager.getInstance(project).findFile(file);
-                if (psiFile != null) {
-                    return new PsiElement[]{psiFile};
-                }
-            }
-        }
-
-        return null;
+    @Override
+    public void collectSlowLineMarkers(@NotNull java.util.List<? extends PsiElement> elements, @NotNull java.util.Collection<? super LineMarkerInfo<?>> result) {
+        // Not needed for this implementation
     }
 
     private static class RpcMethodInfo {

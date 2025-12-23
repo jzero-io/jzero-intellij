@@ -64,8 +64,8 @@
         <codeInsight.lineMarkerProvider language="api" implementationClass="io.jzero.navigation.ApiNavigationLineMarkerProvider"/>
         <codeInsight.lineMarkerProvider language="api" implementationClass="io.jzero.navigation.TypeGotoDeclarationHandler"/>
         <codeInsight.lineMarkerProvider language="api" implementationClass="io.jzero.navigation.ApiGotoDeclarationHandler"/>
+        <codeInsight.lineMarkerProvider implementationClass="io.jzero.navigation.ProtoGotoDeclarationHandler"/>
         <codeInsight.lineMarkerProvider implementationClass="io.jzero.navigation.JzeroGenLineMarkerProvider"/>
-        <gotoDeclarationHandler implementation="io.jzero.navigation.ProtoGotoDeclarationHandler"/>
         <configurationType implementation="io.jzero.runconfig.JzeroGenConfigurationType"/>
     </extensions>
 
