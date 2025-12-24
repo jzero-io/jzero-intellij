@@ -29,7 +29,7 @@ import java.util.List;
 /**
  * LineMarker provider for jzero gen execution buttons
  * Supports .jzero.yaml, .api, .proto, and .sql files:
- * - For .jzero.yaml: Shows button next to "gen" keyword
+ * - For .jzero.yaml: Shows button next to "gen" and "zrpcclient" keywords
  * - For .api: Shows button on first line to execute "jzero gen --desc"
  * - For .proto: Shows button on first line to execute "jzero gen --desc" (only in desc/proto, excludes third_party)
  * - For .sql: Shows button on first line to execute "jzero gen --desc" (only in desc/sql)
@@ -85,23 +85,39 @@ public class JzeroGenLineMarkerProvider implements LineMarkerProvider {
     private LineMarkerInfo<?> createYamlLineMarker(@NotNull PsiElement element,
                                                   @NotNull Project project,
                                                   @NotNull VirtualFile virtualFile) {
-        // Check if the element contains the "gen" keyword
+        // Check if the element contains the "gen" or "zrpcclient" keyword
         String elementText = element.getText();
-        if (elementText == null || !elementText.trim().equals("gen")) {
+        if (elementText == null) {
+            return null;
+        }
+
+        String trimmedText = elementText.trim();
+        String command = null;
+        String tooltip;
+
+        if (trimmedText.equals("gen")) {
+            command = "jzero gen";
+            tooltip = "Execute jzero gen";
+        } else if (trimmedText.equals("zrpcclient")) {
+            command = "jzero gen zrpcclient";
+            tooltip = "Execute jzero gen zrpcclient";
+        } else {
+            tooltip = null;
             return null;
         }
 
         String configDir = virtualFile.getParent() != null ? virtualFile.getParent().getPath() : "";
 
+        String finalCommand = command;
         return new LineMarkerInfo<>(
                 element,
                 element.getTextRange(),
                 AllIcons.Actions.Execute,
-                psiElement -> "Execute jzero gen",
+                psiElement -> tooltip,
                 new GutterIconNavigationHandler<PsiElement>() {
                     @Override
                     public void navigate(MouseEvent e, PsiElement elt) {
-                        executeJzeroGenCommand(project, virtualFile, "jzero gen");
+                        executeJzeroGenCommand(project, virtualFile, finalCommand);
                     }
                 },
                 GutterIconRenderer.Alignment.LEFT
