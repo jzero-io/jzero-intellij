@@ -49,9 +49,6 @@ public class JzeroGenLineMarkerProvider implements LineMarkerProvider {
             return null;
         }
 
-        // Ensure VirtualFile is up-to-date to handle file renames
-        virtualFile.refresh(false, false);
-
         Project project = containingFile.getProject();
         String fileName = virtualFile.getName();
 
