@@ -62,6 +62,11 @@ public class ApiGotoDeclarationHandler implements LineMarkerProvider {
         }
         final String finalDisplayName = displayName;
 
+        // Check if the logic file exists before showing the marker
+        if (!logicFileExists(element, handlerName)) {
+            return null;
+        }
+
         return new LineMarkerInfo<>(
                 element,
                 element.getTextRange(),
@@ -113,22 +118,10 @@ public class ApiGotoDeclarationHandler implements LineMarkerProvider {
         // Search for .go files in the project
         Collection<VirtualFile> goFiles = FilenameIndex.getAllFilesByExt(project, "go", GlobalSearchScope.projectScope(project));
 
-        // Get naming format for consistent file naming
-        String namingFormat = JzeroConfigReader.getNamingStyle(project, sourceElement.getContainingFile());
-        String formattedHandlerName = JzeroConfigReader.formatFileName(namingFormat, handlerName);
-
         // First try exact path match
         for (VirtualFile file : goFiles) {
             String filePath = file.getPath();
             if (filePath.contains(targetPath)) {
-                return PsiManager.getInstance(project).findFile(file);
-            }
-        }
-
-        // If exact match fails, try broader search using formatted name
-        for (VirtualFile file : goFiles) {
-            String filePath = file.getPath();
-            if (filePath.contains("logic") && filePath.contains(formattedHandlerName)) {
                 return PsiManager.getInstance(project).findFile(file);
             }
         }
@@ -444,6 +437,36 @@ public class ApiGotoDeclarationHandler implements LineMarkerProvider {
 
         System.out.println("Not a middleware keyword");
         return false;
+    }
+
+    private boolean logicFileExists(@NotNull PsiElement element, @NotNull String handlerName) {
+        // Remove "Handler" suffix if present
+        if (handlerName.endsWith("Handler")) {
+            handlerName = handlerName.substring(0, handlerName.length() - "Handler".length());
+        }
+
+        // Find service information
+        ServiceInfo serviceInfo = findServiceInfo(element);
+
+        // Calculate target path for logic files
+        String targetPath;
+        if (serviceInfo != null && serviceInfo.groupName != null) {
+            // Get naming style from .jzero.yaml configuration
+            String namingFormat = JzeroConfigReader.getNamingStyle(element.getProject(), element.getContainingFile());
+
+            // Format the handler name according to jzero configuration
+            String formattedHandlerName = JzeroConfigReader.formatFileName(namingFormat, handlerName);
+
+            // Navigate to logic files
+            targetPath = "internal/logic/" + serviceInfo.groupName + "/" + formattedHandlerName + ".go";
+        } else {
+            // Fallback to logic without group
+            String namingFormat = JzeroConfigReader.getNamingStyle(element.getProject(), element.getContainingFile());
+            String formattedHandlerName = JzeroConfigReader.formatFileName(namingFormat, handlerName);
+            targetPath = "internal/logic/" + formattedHandlerName + ".go";
+        }
+
+        return findLogicFile(element.getProject(), targetPath, handlerName, element) != null;
     }
 
     private static class ServiceInfo {

@@ -39,6 +39,11 @@ public class ProtoGotoDeclarationHandler implements LineMarkerProvider {
             return null;
         }
 
+        // Check if the logic file exists before showing the marker
+        if (!logicFileExists(element, rpcInfo)) {
+            return null;
+        }
+
         return createNavigationMarkerForRpc(element, rpcInfo);
     }
 
@@ -87,25 +92,6 @@ public class ProtoGotoDeclarationHandler implements LineMarkerProvider {
         for (VirtualFile file : goFiles) {
             String filePath = file.getPath();
             if (filePath.contains(targetPath)) {
-                return PsiManager.getInstance(project).findFile(file);
-            }
-        }
-
-        // If exact match fails, try broader search using formatted names
-        for (VirtualFile file : goFiles) {
-            String filePath = file.getPath();
-            // Check if path contains both logic directory and the rpc name
-            if (filePath.contains("logic") &&
-                filePath.contains("/" + serviceName + "/") &&
-                filePath.contains(rpcName)) {
-                return PsiManager.getInstance(project).findFile(file);
-            }
-        }
-
-        // Final fallback: just look for the rpc name in logic directories
-        for (VirtualFile file : goFiles) {
-            String filePath = file.getPath();
-            if (filePath.contains("logic") && filePath.contains(rpcName)) {
                 return PsiManager.getInstance(project).findFile(file);
             }
         }
@@ -227,6 +213,22 @@ public class ProtoGotoDeclarationHandler implements LineMarkerProvider {
     @Override
     public void collectSlowLineMarkers(@NotNull java.util.List<? extends PsiElement> elements, @NotNull java.util.Collection<? super LineMarkerInfo<?>> result) {
         // Not needed for this implementation
+    }
+
+    private boolean logicFileExists(@NotNull PsiElement element, @NotNull RpcMethodInfo rpcInfo) {
+        // Get naming style from .jzero.yaml configuration
+        PsiFile containingFile = element.getContainingFile();
+        String namingFormat = JzeroConfigReader.getNamingStyle(element.getProject(), containingFile);
+
+        // Service name always uses "gozero" style (lowercase without separators)
+        String formattedServiceName = JzeroConfigReader.formatFileName("gozero", rpcInfo.serviceName);
+        // Format the rpc name according to jzero configuration style
+        String formattedRpcName = JzeroConfigReader.formatFileName(namingFormat, rpcInfo.rpcName);
+
+        // Navigate to logic files: internal/logic/$servicename/$rpcname.go
+        String targetPath = "internal/logic/" + formattedServiceName + "/" + formattedRpcName + ".go";
+
+        return findLogicFile(element.getProject(), targetPath, formattedServiceName, formattedRpcName) != null;
     }
 
     private static class RpcMethodInfo {

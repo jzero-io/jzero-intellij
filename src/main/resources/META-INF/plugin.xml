@@ -66,6 +66,10 @@
         <codeInsight.lineMarkerProvider implementationClass="io.jzero.navigation.ProtoGotoDeclarationHandler"/>
         <codeInsight.lineMarkerProvider implementationClass="io.jzero.navigation.JzeroGenLineMarkerProvider"/>
         <configurationType implementation="io.jzero.runconfig.JzeroGenConfigurationType"/>
+
+        <!-- Jzero Tool Window -->
+        <toolWindow id="Jzero" factoryClass="io.jzero.ui.JzeroToolWindowFactory" anchor="left"
+                    icon="/icons/jzero.svg"/>
     </extensions>
 
     <actions>
