@@ -40,6 +40,11 @@ public class TypeGotoDeclarationHandler implements LineMarkerProvider {
             return null;
         }
 
+        // Check if the target types file exists before showing the marker
+        if (!typesFileExists(element)) {
+            return null;
+        }
+
         return new LineMarkerInfo<>(
                 element,
                 element.getTextRange(),
@@ -176,5 +181,27 @@ public class TypeGotoDeclarationHandler implements LineMarkerProvider {
     @Override
     public void collectSlowLineMarkers(@NotNull java.util.List<? extends PsiElement> elements, @NotNull java.util.Collection<? super LineMarkerInfo<?>> result) {
         // Not needed for this implementation
+    }
+
+    private boolean typesFileExists(@NotNull PsiElement element) {
+        // Get current API file from the element
+        PsiFile currentApiFile = element.getContainingFile();
+        if (currentApiFile == null) {
+            return false;
+        }
+
+        Project project = currentApiFile.getProject();
+        String goPackage = extractGoPackageFromApiFile(currentApiFile);
+
+        PsiFile targetGoFile = null;
+        if (goPackage != null && !goPackage.isEmpty()) {
+            // Use smart path mapping based on go_package
+            targetGoFile = findTypesGoFile(project, goPackage);
+        } else {
+            // No go_package found, look for types/types.go
+            targetGoFile = findRootTypesGoFile(project);
+        }
+
+        return targetGoFile != null;
     }
 }
