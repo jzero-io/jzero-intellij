@@ -143,6 +143,12 @@ public class JzeroGenLineMarkerProvider implements LineMarkerProvider {
             return null;
         }
 
+        // Only show button if the file path contains /desc/ pattern
+        String filePath = virtualFile.getPath();
+        if (!filePath.contains("/desc/")) {
+            return null;
+        }
+
         // Don't calculate the command here - do it dynamically when clicked
         // to ensure we get the current file path after potential renames
 
@@ -177,24 +183,33 @@ public class JzeroGenLineMarkerProvider implements LineMarkerProvider {
 
         String apiFilePath = virtualFile.getPath();
 
-        // Find the directory containing .jzero.yaml file
-        String jzeroConfigDir = findJzeroConfigDirectory(project, virtualFile);
-        String relativePath = calculateRelativePath(jzeroConfigDir, apiFilePath);
+        // For api/proto/sql files in desc directory, use the parent of desc as working directory
+        // e.g., /path/to/desc/api/xx.api -> working dir is /path/to
+        String workingDir = findDescBasedWorkingDirectory(apiFilePath);
+
+        String relativePath = calculateRelativePath(workingDir, apiFilePath);
         String cmd = "jzero gen --desc " + relativePath;
 
-        executeJzeroGenCommand(project, virtualFile, cmd);
+        executeJzeroGenCommandWithWorkingDir(project, virtualFile, cmd, workingDir);
     }
 
     private void executeJzeroGenCommand(@NotNull Project project,
                                        @NotNull VirtualFile triggerFile,
                                        @NotNull String command) {
-        // Find the directory containing .jzero.yaml file
+        // For .jzero.yaml files, find the directory containing .jzero.yaml file
         String workingDir = findJzeroConfigDirectory(project, triggerFile);
         if (workingDir == null) {
             // Fallback to the directory of the trigger file
             workingDir = triggerFile.getParent() != null ? triggerFile.getParent().getPath() : "";
         }
 
+        executeJzeroGenCommandWithWorkingDir(project, triggerFile, command, workingDir);
+    }
+
+    private void executeJzeroGenCommandWithWorkingDir(@NotNull Project project,
+                                                     @NotNull VirtualFile triggerFile,
+                                                     @NotNull String command,
+                                                     @NotNull String workingDir) {
         // Create a temporary run configuration
         RunManager runManager = RunManager.getInstance(project);
         JzeroGenConfigurationType configurationType = new JzeroGenConfigurationType();
@@ -222,6 +237,22 @@ public class JzeroGenLineMarkerProvider implements LineMarkerProvider {
             // Handle execution errors
             throw new RuntimeException("Failed to execute jzero gen command", e);
         }
+    }
+
+    @Nullable
+    private String findDescBasedWorkingDirectory(@NotNull String filePath) {
+        // For files in desc/api, desc/proto, desc/sql, the working directory
+        // should be the parent directory of "desc"
+        // e.g., /path/to/desc/api/xx.api -> /path/to
+
+        int descIndex = filePath.indexOf("/desc/");
+        if (descIndex == -1) {
+            // If no /desc/ found, fallback to finding .jzero.yaml
+            return null;
+        }
+
+        // Return the path before /desc/
+        return filePath.substring(0, descIndex);
     }
 
     @Nullable
