@@ -10,12 +10,11 @@ import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.search.FilenameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.openapi.ui.popup.JBPopupFactory;
-import com.intellij.openapi.actionSystem.DefaultActionGroup;
-import com.intellij.openapi.actionSystem.AnAction;
-import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.ui.popup.PopupChooserBuilder;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.ui.awt.RelativePoint;
+import com.intellij.ui.components.JBList;
+import javax.swing.DefaultListModel;
 import io.jzero.icon.ApiIcon;
 import io.jzero.psi.nodes.HandlerValueNode;
 import io.jzero.psi.nodes.ServiceNode;
@@ -250,17 +249,13 @@ public class ApiGotoDeclarationHandler implements LineMarkerProvider {
 
         System.out.println("Found middleware names: " + middlewareNames);
 
-        // Create action group with middleware names
-        DefaultActionGroup actionGroup = new DefaultActionGroup();
+        // Create a list model for the popup
+        DefaultListModel<String> listModel = new DefaultListModel<>();
         for (String name : middlewareNames) {
-            final String middlewareName = name;
-            actionGroup.add(new AnAction(name) {
-                @Override
-                public void actionPerformed(@NotNull AnActionEvent e) {
-                    navigateToMiddlewareFile(sourceElement, middlewareName);
-                }
-            });
+            listModel.addElement(name);
         }
+
+        JBList<String> list = new JBList<>(listModel);
 
         // Show popup at the gutter icon position
         Editor editor = com.intellij.openapi.fileEditor.FileEditorManager.getInstance(sourceElement.getProject()).getSelectedTextEditor();
@@ -273,27 +268,30 @@ public class ApiGotoDeclarationHandler implements LineMarkerProvider {
             java.awt.Point point = editor.logicalPositionToXY(logicalPos);
 
             // Position the popup at the text area's left edge (which is right after the gutter)
-            // The point.x is already relative to the editor component and starts after the gutter
             RelativePoint popupPosition = new RelativePoint(editor.getContentComponent(), point);
 
-            JBPopupFactory.getInstance()
-                .createActionGroupPopup(
-                    "Choose Middleware",
-                    actionGroup,
-                    (String dataId) -> null,
-                    JBPopupFactory.ActionSelectionAid.SPEEDSEARCH,
-                    false
-                )
+            // Create and show the popup chooser using PopupChooserBuilder
+            new PopupChooserBuilder<>(list)
+                .setTitle("Choose Middleware")
+                .setItemChoosenCallback(() -> {
+                    String selected = list.getSelectedValue();
+                    if (selected != null) {
+                        navigateToMiddlewareFile(sourceElement, selected);
+                    }
+                })
+                .createPopup()
                 .show(popupPosition);
         } else {
-            JBPopupFactory.getInstance()
-                .createActionGroupPopup(
-                    "Choose Middleware",
-                    actionGroup,
-                    (String dataId) -> null,
-                    JBPopupFactory.ActionSelectionAid.SPEEDSEARCH,
-                    false
-                )
+            // Fallback: show in center
+            new PopupChooserBuilder<>(list)
+                .setTitle("Choose Middleware")
+                .setItemChoosenCallback(() -> {
+                    String selected = list.getSelectedValue();
+                    if (selected != null) {
+                        navigateToMiddlewareFile(sourceElement, selected);
+                    }
+                })
+                .createPopup()
                 .showCenteredInCurrentWindow(sourceElement.getProject());
         }
     }
