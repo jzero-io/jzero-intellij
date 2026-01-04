@@ -68,11 +68,11 @@ public class TypeGotoDeclarationHandler implements LineMarkerProvider {
 
         PsiFile targetGoFile = null;
         if (goPackage != null && !goPackage.isEmpty()) {
-            // Use smart path mapping based on go_package
-            targetGoFile = findTypesGoFile(project, goPackage);
+            // Use smart path mapping based on go_package and source file path
+            targetGoFile = findTypesGoFile(sourceElement, goPackage);
         } else {
             // No go_package found, look for types/types.go
-            targetGoFile = findRootTypesGoFile(project);
+            targetGoFile = findRootTypesGoFile(sourceElement);
         }
 
         if (targetGoFile != null) {
@@ -81,7 +81,7 @@ public class TypeGotoDeclarationHandler implements LineMarkerProvider {
         }
     }
 
-    
+
     @Nullable
     private String extractGoPackageFromApiFile(@NotNull PsiFile apiFile) {
         String content = apiFile.getText();
@@ -101,58 +101,64 @@ public class TypeGotoDeclarationHandler implements LineMarkerProvider {
     }
 
     @Nullable
-    private PsiFile findTypesGoFile(@NotNull Project project, @NotNull String packagePath) {
-        // Search for .go files in the project
-        Collection<VirtualFile> goFiles = FilenameIndex.getAllFilesByExt(project, "go", GlobalSearchScope.projectScope(project));
+    private PsiFile findTypesGoFile(@NotNull PsiElement sourceElement, @NotNull String packagePath) {
+        Project project = sourceElement.getProject();
 
-        for (VirtualFile file : goFiles) {
-            String filePath = file.getPath();
-
-            // Look for types.go files with matching package path
-            if (filePath.endsWith("types.go") && filePath.contains("/internal/types/")) {
-                String extractedPath = extractPackagePathFromGoFile(filePath);
-                if (packagePath.equals(extractedPath)) {
-                    return PsiManager.getInstance(project).findFile(file);
-                }
-            }
-        }
-
-        return null;
-    }
-
-    @Nullable
-    private String extractPackagePathFromGoFile(@NotNull String goFilePath) {
-        // Example: /project/server/internal/types/v1/manage/role/types.go
-        // Extract: v1/manage/role
-
-        int internalTypesIndex = goFilePath.indexOf("/internal/types/");
-        if (internalTypesIndex == -1) {
+        // Get the base path from the api file
+        VirtualFile sourceFile = sourceElement.getContainingFile().getVirtualFile();
+        if (sourceFile == null) {
             return null;
         }
 
-        String afterInternalTypes = goFilePath.substring(internalTypesIndex + "/internal/types/".length());
+        // Calculate the base path by replacing "desc/api" or "api" with "internal/types"
+        String filePath = sourceFile.getPath();
+        String basePath = filePath;
 
-        // Remove filename (types.go)
-        int lastSlash = afterInternalTypes.lastIndexOf('/');
-        if (lastSlash > 0) {
-            return afterInternalTypes.substring(0, lastSlash);
+        if (filePath.contains("/desc/api/")) {
+            basePath = filePath.substring(0, filePath.indexOf("/desc/api/")) + "/internal/types";
+        } else if (filePath.contains("/api/")) {
+            basePath = filePath.substring(0, filePath.indexOf("/api/")) + "/internal/types";
+        }
+
+        // Combine base path with package path to get full path
+        String fullPath = basePath + "/" + packagePath + "/types.go";
+
+        // Try to find the file at the calculated path
+        VirtualFile targetVirtualFile = sourceFile.getFileSystem().findFileByPath(fullPath);
+        if (targetVirtualFile != null) {
+            return PsiManager.getInstance(project).findFile(targetVirtualFile);
         }
 
         return null;
     }
 
     @Nullable
-    private PsiFile findRootTypesGoFile(@NotNull Project project) {
-        // Search for .go files in the project
-        Collection<VirtualFile> goFiles = FilenameIndex.getAllFilesByExt(project, "go", GlobalSearchScope.projectScope(project));
+    private PsiFile findRootTypesGoFile(@NotNull PsiElement sourceElement) {
+        Project project = sourceElement.getProject();
 
-        for (VirtualFile file : goFiles) {
-            String filePath = file.getPath();
+        // Get the base path from the api file
+        VirtualFile sourceFile = sourceElement.getContainingFile().getVirtualFile();
+        if (sourceFile == null) {
+            return null;
+        }
 
-            // Look for types/types.go file (root types file without package path)
-            if (filePath.endsWith("types/types.go")) {
-                return PsiManager.getInstance(project).findFile(file);
-            }
+        // Calculate the base path by replacing "desc/api" or "api" with "types"
+        String filePath = sourceFile.getPath();
+        String basePath = filePath;
+
+        if (filePath.contains("/desc/api/")) {
+            basePath = filePath.substring(0, filePath.indexOf("/desc/api/")) + "/types";
+        } else if (filePath.contains("/api/")) {
+            basePath = filePath.substring(0, filePath.indexOf("/api/")) + "/types";
+        }
+
+        // Full path to types/types.go
+        String fullPath = basePath + "/types.go";
+
+        // Try to find the file at the calculated path
+        VirtualFile targetVirtualFile = sourceFile.getFileSystem().findFileByPath(fullPath);
+        if (targetVirtualFile != null) {
+            return PsiManager.getInstance(project).findFile(targetVirtualFile);
         }
 
         return null;
@@ -190,16 +196,15 @@ public class TypeGotoDeclarationHandler implements LineMarkerProvider {
             return false;
         }
 
-        Project project = currentApiFile.getProject();
         String goPackage = extractGoPackageFromApiFile(currentApiFile);
 
         PsiFile targetGoFile = null;
         if (goPackage != null && !goPackage.isEmpty()) {
-            // Use smart path mapping based on go_package
-            targetGoFile = findTypesGoFile(project, goPackage);
+            // Use smart path mapping based on go_package and source file path
+            targetGoFile = findTypesGoFile(element, goPackage);
         } else {
             // No go_package found, look for types/types.go
-            targetGoFile = findRootTypesGoFile(project);
+            targetGoFile = findRootTypesGoFile(element);
         }
 
         return targetGoFile != null;

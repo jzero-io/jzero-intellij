@@ -361,7 +361,7 @@ public class ApiGotoDeclarationHandler implements LineMarkerProvider {
         String targetPath = "internal/middleware/" + formattedMiddlewareName + "middleware.go";
 
         // Find and navigate to the target middleware file
-        PsiFile targetFile = findMiddlewareFile(sourceElement.getProject(), targetPath, middlewareName);
+        PsiFile targetFile = findMiddlewareFile(sourceElement, targetPath);
         if (targetFile != null) {
             // Navigate to the middleware function
             navigateToMiddlewareFunction(sourceElement.getProject(), targetFile, middlewareName);
@@ -369,28 +369,32 @@ public class ApiGotoDeclarationHandler implements LineMarkerProvider {
     }
 
     @Nullable
-    private PsiFile findMiddlewareFile(@NotNull Project project, @NotNull String targetPath, @NotNull String middlewareName) {
-        // Search for .go files in the project
-        Collection<VirtualFile> goFiles = FilenameIndex.getAllFilesByExt(project, "go", GlobalSearchScope.projectScope(project));
+    private PsiFile findMiddlewareFile(@NotNull PsiElement sourceElement, @NotNull String targetPath) {
+        Project project = sourceElement.getProject();
 
-        // Get naming format for consistent file naming
-        String namingFormat = JzeroConfigReader.getNamingStyle(project, null);
-        String formattedMiddlewareName = JzeroConfigReader.formatFileName(namingFormat, middlewareName);
-
-        // First try exact path match
-        for (VirtualFile file : goFiles) {
-            String filePath = file.getPath();
-            if (filePath.contains(targetPath)) {
-                return PsiManager.getInstance(project).findFile(file);
-            }
+        // Get the base path from the api file
+        VirtualFile sourceFile = sourceElement.getContainingFile().getVirtualFile();
+        if (sourceFile == null) {
+            return null;
         }
 
-        // If exact match fails, try broader search using formatted name
-        for (VirtualFile file : goFiles) {
-            String filePath = file.getPath();
-            if (filePath.contains("middleware") && filePath.contains(formattedMiddlewareName)) {
-                return PsiManager.getInstance(project).findFile(file);
-            }
+        // Calculate the base path by replacing "desc/api" or "api" with "internal/middleware"
+        String filePath = sourceFile.getPath();
+        String basePath = filePath;
+
+        if (filePath.contains("/desc/api/")) {
+            basePath = filePath.substring(0, filePath.indexOf("/desc/api/")) + "/internal/middleware";
+        } else if (filePath.contains("/api/")) {
+            basePath = filePath.substring(0, filePath.indexOf("/api/")) + "/internal/middleware";
+        }
+
+        // Combine base path with target path (which already contains the relative part)
+        String fullPath = basePath + "/" + targetPath.substring("internal/middleware".length());
+
+        // Try to find the file at the calculated path
+        VirtualFile targetVirtualFile = sourceFile.getFileSystem().findFileByPath(fullPath);
+        if (targetVirtualFile != null) {
+            return PsiManager.getInstance(project).findFile(targetVirtualFile);
         }
 
         return null;
