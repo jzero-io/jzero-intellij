@@ -115,15 +115,34 @@ public class ApiGotoDeclarationHandler implements LineMarkerProvider {
 
     @Nullable
     private PsiFile findLogicFile(@NotNull Project project, @NotNull String targetPath, @NotNull String handlerName, @NotNull PsiElement sourceElement) {
-        // Search for .go files in the project
-        Collection<VirtualFile> goFiles = FilenameIndex.getAllFilesByExt(project, "go", GlobalSearchScope.projectScope(project));
+        // Get the base path from the api/proto file
+        VirtualFile sourceFile = sourceElement.getContainingFile().getVirtualFile();
+        if (sourceFile == null) {
+            return null;
+        }
 
-        // First try exact path match
-        for (VirtualFile file : goFiles) {
-            String filePath = file.getPath();
-            if (filePath.contains(targetPath)) {
-                return PsiManager.getInstance(project).findFile(file);
-            }
+        // Calculate the base path by replacing "desc/api" or "desc/proto" with "internal/logic"
+        String filePath = sourceFile.getPath();
+        String basePath = filePath;
+
+        // Replace "desc/api" or "api" with "internal/logic"
+        if (filePath.contains("/desc/api/")) {
+            basePath = filePath.substring(0, filePath.indexOf("/desc/api/")) + "/internal/logic";
+        } else if (filePath.contains("/api/")) {
+            basePath = filePath.substring(0, filePath.indexOf("/api/")) + "/internal/logic";
+        } else if (filePath.contains("/desc/proto/")) {
+            basePath = filePath.substring(0, filePath.indexOf("/desc/proto/")) + "/internal/logic";
+        } else if (filePath.contains("/proto/")) {
+            basePath = filePath.substring(0, filePath.indexOf("/proto/")) + "/internal/logic";
+        }
+
+        // Combine base path with target path (which already contains the relative part)
+        String fullPath = basePath + "/" + targetPath.substring("internal/logic".length());
+
+        // Try to find the file at the calculated path
+        VirtualFile targetVirtualFile = sourceFile.getFileSystem().findFileByPath(fullPath);
+        if (targetVirtualFile != null) {
+            return PsiManager.getInstance(project).findFile(targetVirtualFile);
         }
 
         return null;

@@ -73,7 +73,7 @@ public class ProtoGotoDeclarationHandler implements LineMarkerProvider {
         String targetPath = "internal/logic/" + formattedServiceName + "/" + formattedRpcName + ".go";
 
         // Find and navigate to the target logic file
-        PsiFile targetFile = findLogicFile(sourceElement.getProject(), targetPath, formattedServiceName, formattedRpcName);
+        PsiFile targetFile = findLogicFile(sourceElement, targetPath, formattedServiceName, formattedRpcName);
         if (targetFile != null) {
             // Navigate to NewRpc function
             navigateToNewRpcFunction(sourceElement.getProject(), targetFile, rpcInfo.rpcName);
@@ -81,19 +81,36 @@ public class ProtoGotoDeclarationHandler implements LineMarkerProvider {
     }
 
     @Nullable
-    private PsiFile findLogicFile(@NotNull Project project,
+    private PsiFile findLogicFile(@NotNull PsiElement sourceElement,
                                   @NotNull String targetPath,
                                   @NotNull String serviceName,
                                   @NotNull String rpcName) {
-        // Search for .go files in the project
-        Collection<VirtualFile> goFiles = FilenameIndex.getAllFilesByExt(project, "go", GlobalSearchScope.projectScope(project));
+        Project project = sourceElement.getProject();
 
-        // First try exact path match
-        for (VirtualFile file : goFiles) {
-            String filePath = file.getPath();
-            if (filePath.contains(targetPath)) {
-                return PsiManager.getInstance(project).findFile(file);
-            }
+        // Get the base path from the proto file
+        VirtualFile sourceFile = sourceElement.getContainingFile().getVirtualFile();
+        if (sourceFile == null) {
+            return null;
+        }
+
+        // Calculate the base path by replacing "desc/proto" or "proto" with "internal/logic"
+        String filePath = sourceFile.getPath();
+        String basePath = filePath;
+
+        // Replace "desc/proto" or "proto" with "internal/logic"
+        if (filePath.contains("/desc/proto/")) {
+            basePath = filePath.substring(0, filePath.indexOf("/desc/proto/")) + "/internal/logic";
+        } else if (filePath.contains("/proto/")) {
+            basePath = filePath.substring(0, filePath.indexOf("/proto/")) + "/internal/logic";
+        }
+
+        // Combine base path with target path (which already contains the relative part)
+        String fullPath = basePath + "/" + targetPath.substring("internal/logic".length());
+
+        // Try to find the file at the calculated path
+        VirtualFile targetVirtualFile = sourceFile.getFileSystem().findFileByPath(fullPath);
+        if (targetVirtualFile != null) {
+            return PsiManager.getInstance(project).findFile(targetVirtualFile);
         }
 
         return null;
@@ -228,7 +245,7 @@ public class ProtoGotoDeclarationHandler implements LineMarkerProvider {
         // Navigate to logic files: internal/logic/$servicename/$rpcname.go
         String targetPath = "internal/logic/" + formattedServiceName + "/" + formattedRpcName + ".go";
 
-        return findLogicFile(element.getProject(), targetPath, formattedServiceName, formattedRpcName) != null;
+        return findLogicFile(element, targetPath, formattedServiceName, formattedRpcName) != null;
     }
 
     private static class RpcMethodInfo {
