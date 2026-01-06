@@ -66,12 +66,12 @@ public class TypeGotoDeclarationHandler implements LineMarkerProvider {
         Project project = currentApiFile.getProject();
         String goPackage = extractGoPackageFromApiFile(currentApiFile);
 
-        PsiFile targetGoFile = null;
+        PsiFile targetGoFile;
         if (goPackage != null && !goPackage.isEmpty()) {
             // Use smart path mapping based on go_package and source file path
             targetGoFile = findTypesGoFile(sourceElement, goPackage);
         } else {
-            // No go_package found, look for types/types.go
+            // No go_package found, look for internal/types/types.go
             targetGoFile = findRootTypesGoFile(sourceElement);
         }
 
@@ -121,7 +121,12 @@ public class TypeGotoDeclarationHandler implements LineMarkerProvider {
         }
 
         // Combine base path with package path to get full path
-        String fullPath = basePath + "/" + packagePath + "/types.go";
+        String fullPath;
+        if (packagePath.isEmpty()) {
+            fullPath = basePath + "/types.go";
+        } else {
+            fullPath = basePath + "/" + packagePath + "/types.go";
+        }
 
         // Try to find the file at the calculated path
         VirtualFile targetVirtualFile = sourceFile.getFileSystem().findFileByPath(fullPath);
@@ -142,17 +147,17 @@ public class TypeGotoDeclarationHandler implements LineMarkerProvider {
             return null;
         }
 
-        // Calculate the base path by replacing "desc/api" or "api" with "types"
+        // Calculate the base path by replacing "desc/api" or "api" with "internal/types"
         String filePath = sourceFile.getPath();
         String basePath = filePath;
 
         if (filePath.contains("/desc/api/")) {
-            basePath = filePath.substring(0, filePath.indexOf("/desc/api/")) + "/types";
+            basePath = filePath.substring(0, filePath.indexOf("/desc/api/")) + "/internal/types";
         } else if (filePath.contains("/api/")) {
-            basePath = filePath.substring(0, filePath.indexOf("/api/")) + "/types";
+            basePath = filePath.substring(0, filePath.indexOf("/api/")) + "/internal/types";
         }
 
-        // Full path to types/types.go
+        // Full path to internal/types/types.go
         String fullPath = basePath + "/types.go";
 
         // Try to find the file at the calculated path
@@ -198,12 +203,12 @@ public class TypeGotoDeclarationHandler implements LineMarkerProvider {
 
         String goPackage = extractGoPackageFromApiFile(currentApiFile);
 
-        PsiFile targetGoFile = null;
+        PsiFile targetGoFile;
         if (goPackage != null && !goPackage.isEmpty()) {
             // Use smart path mapping based on go_package and source file path
             targetGoFile = findTypesGoFile(element, goPackage);
         } else {
-            // No go_package found, look for types/types.go
+            // No go_package found, look for internal/types/types.go
             targetGoFile = findRootTypesGoFile(element);
         }
 
