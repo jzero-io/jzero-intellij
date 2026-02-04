@@ -38,11 +38,6 @@ dependencies {
 
 patchPluginXml {
     sinceBuild = '222.0'
-    changeNotes = """
-    <ul>
-       <li>fix duplicate route syntax</li>
-    </ul>
-    """
 }
 sourceCompatibility = JavaVersion.VERSION_14
 targetCompatibility = JavaVersion.VERSION_14
